@@ -8,7 +8,7 @@
 -- lvl 4: Administrator
 --
 -- NOTE: use "[^a-z,\,] as regexp to search rows without comma 
---
+
 --
 -- PLAYER
 --
@@ -690,6 +690,9 @@ WHERE `name` IN (
     'lfg'
 );
 
+--
+-- GOD
+--
 UPDATE `command`
 SET `security` = 5
 WHERE `name` IN (
