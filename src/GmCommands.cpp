@@ -1,6 +1,7 @@
-#include "ScriptMgr.h"
 #include "Player.h"
-
+#include "ScriptMgr.h"
+#include "Chat.h"
+#include "Config.h"
 class GmCommands : public PlayerScript
 {
 public:
@@ -10,7 +11,7 @@ public:
     {
         if (player->IsGameMaster())
         {
-            player->GetSession()->SendNotification("Welcome, Game Master!");
+            ChatHandler(player->GetSession()).PSendSysMessage("Welcome, Game Master!");
         }
     }
 };
