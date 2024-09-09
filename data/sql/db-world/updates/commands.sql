@@ -586,7 +586,7 @@ WHERE `name` IN (
 );
 
 --
--- SERVER OP ( ADMIN )
+-- SERVER OP ( CONSOLE )
 --
 UPDATE `command`
 SET `security` = 4
@@ -663,9 +663,6 @@ WHERE `name` IN (
     'ticket reset'
 );
 
---
--- GOD
---
 UPDATE `command`
 SET `security` = 5
 WHERE `name` IN (
