@@ -9,7 +9,7 @@ public:
 
     void OnLogin(Player* player) override
     {
-        if (player->IsGameMaster())
+        if (sConfigMgr->GetOption<bool>("GmCommandsModule.Enable", false))
         {
             ChatHandler(player->GetSession()).PSendSysMessage("Welcome, Game Master!");
         }
