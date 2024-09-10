@@ -666,5 +666,5 @@ WHERE `name` IN (
 UPDATE `command`
 SET `security` = 5
 WHERE `name` IN (
-    'debug anim',
+    'debug anim'
 );
