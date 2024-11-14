@@ -15,7 +15,7 @@ public:
             return true;
 
         Player* player = who.GetPlayer();
-        
+
         if (!player)
             return true;
 
@@ -41,6 +41,7 @@ private:
         "gm fly",
     };
 };
+
 void AddGmCommandScripts()
 {
     new GmCommands();
