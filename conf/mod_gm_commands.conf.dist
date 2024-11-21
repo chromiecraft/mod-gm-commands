@@ -15,3 +15,20 @@
 #
 
 GmCommandsModule.Enable = 1
+
+#
+#    GmCommandsModule.AccountIds
+#        Description: Allow the specified accounts to use commands. Separated by comma
+#
+#
+
+GmCommandsModule.AccountIds = ""
+
+#
+#
+#    GmCommandsModule.AllowedCommands
+#        Description: Allow the specified commands to be used. Separated by comma.
+#
+#
+
+GmCommandsModule.AllowedCommands = ""

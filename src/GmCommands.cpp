@@ -3,6 +3,48 @@
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "Config.h"
+#include "GmCommands.h"
+#include "Tokenize.h"
+
+GMCommands* GMCommands::instance()
+{
+    static GMCommands instance;
+    return &instance;
+}
+
+void GMCommands::LoadAccountIds()
+{
+    std::string accountIds = sConfigMgr->GetOption<std::string>("GmCommandsModule.AccountIds", "");
+    for (auto& itr : Acore::Tokenize(accountIds, ',', false))
+    {
+        uint32 accountId = Acore::StringTo<uint32>(itr).value();
+        accountIDs.push_back(accountId);
+    }
+}
+
+void GMCommands::LoadAllowedCommands()
+{
+    std::string allowedCommandsList = sConfigMgr->GetOption<std::string>("GmCommandsModule.AllowedCommands", "");
+    for (auto& itr : Acore::Tokenize(allowedCommandsList, ',', false))
+    {
+        std::string command(itr);
+        allowedCommands.push_back(command);
+    }
+}
+
+bool GMCommands::IsAccountAllowed(uint32 accountId) const
+{
+    for (auto& itr : accountIDs)
+    {
+        LOG_ERROR("sql.sql", "AccountId {}", itr);
+    }
+    return std::find(accountIDs.begin(), accountIDs.end(), accountId) != accountIDs.end();
+}
+
+bool GMCommands::IsCommandAllowed(std::string command) const
+{
+    return std::find(allowedCommands.begin(), allowedCommands.end(), command) != allowedCommands.end();
+}
 
 class GmCommands : public AllCommandScript
 {
@@ -21,28 +63,30 @@ public:
 
         uint32 accountID = player->GetSession()->GetAccountId();
 
-        if (!std::count(eligibleAccounts.begin(), eligibleAccounts.end(), accountID))
-            return true; // Account is not eligible
+        if (!sGMCommands->IsAccountAllowed(accountID))
+            return true;
 
-        if (std::count(eligibleCommands.begin(), eligibleCommands.end(), name))
-            return false; // Command is eligible
+        if (!sGMCommands->IsCommandAllowed(name))
+            return true;
 
-        return true; // Command is not eligible
+        return false;
     }
+};
 
-private:
-    std::vector<uint32> eligibleAccounts =
-    {
-        94143, // HEYITSGMCH
-    };
+class mod_gm_commands_worldscript : public WorldScript
+{
+public:
+    mod_gm_commands_worldscript() : WorldScript("mod_gm_commands_worldscript") {}
 
-    std::vector<std::string> eligibleCommands =
+    void OnAfterConfigLoad(bool /*reload*/) override
     {
-        "gm fly",
-    };
+        sGMCommands->LoadAccountIds();
+        sGMCommands->LoadAllowedCommands();
+    }
 };
 
 void AddGmCommandScripts()
 {
     new GmCommands();
+    new mod_gm_commands_worldscript();
 }
