@@ -14,6 +14,8 @@ GMCommands* GMCommands::instance()
 
 void GMCommands::LoadAccountIds()
 {
+    accountIDs.clear();
+
     std::string accountIds = sConfigMgr->GetOption<std::string>("GmCommandsModule.AccountIds", "");
     for (auto& itr : Acore::Tokenize(accountIds, ',', false))
     {
@@ -24,6 +26,8 @@ void GMCommands::LoadAccountIds()
 
 void GMCommands::LoadAllowedCommands()
 {
+    allowedCommands.clear();
+
     std::string allowedCommandsList = sConfigMgr->GetOption<std::string>("GmCommandsModule.AllowedCommands", "");
     for (auto& itr : Acore::Tokenize(allowedCommandsList, ',', false))
     {
@@ -34,10 +38,6 @@ void GMCommands::LoadAllowedCommands()
 
 bool GMCommands::IsAccountAllowed(uint32 accountId) const
 {
-    for (auto& itr : accountIDs)
-    {
-        LOG_ERROR("sql.sql", "AccountId {}", itr);
-    }
     return std::find(accountIDs.begin(), accountIDs.end(), accountId) != accountIDs.end();
 }
 
