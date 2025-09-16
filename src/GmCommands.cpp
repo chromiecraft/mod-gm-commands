@@ -1,4 +1,5 @@
 #include "Player.h"
+#include "PlayerScript.h"
 #include "ScriptMgr.h"
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -85,8 +86,39 @@ public:
     }
 };
 
+class mod_gm_commands_playerscript : public PlayerScript
+{
+public:
+    mod_gm_commands_playerscript() : PlayerScript("mod_gm_commands_playerscript") {}
+
+    void OnPlayerSetServerSideVisibility(Player* player, ServerSideVisibilityType& type, AccountTypes& sec) override
+    {
+        if (type != SERVERSIDE_VISIBILITY_GM)
+            return;
+
+        if (!player || player->isGMVisible())
+            return;
+
+        WorldSession* session = player->GetSession();
+        if (!session)
+            return;
+
+        if (!sGMCommands->IsAccountAllowed(session->GetAccountId()))
+            return;
+
+        if (sec != SEC_PLAYER)
+            return;
+
+        if (!sGMCommands->IsCommandAllowed("gm") && !sGMCommands->IsCommandAllowed("gm visible"))
+            return;
+
+        sec = SEC_GAMEMASTER;
+    }
+};
+
 void AddGmCommandScripts()
 {
     new GmCommands();
     new mod_gm_commands_worldscript();
+    new mod_gm_commands_playerscript();
 }
