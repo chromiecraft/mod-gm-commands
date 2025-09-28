@@ -18,17 +18,41 @@ GmCommandsModule.Enable = 1
 
 #
 #    GmCommandsModule.AccountIds
-#        Description: Allow the specified accounts to use commands. Separated by comma
-#
+#        Description: Comma separated list of account identifiers that should be managed by this module.
+#                     Each listed account can optionally define a custom GM level or custom command list.
 #
 
 GmCommandsModule.AccountIds = ""
 
 #
-#
-#    GmCommandsModule.AllowedCommands
-#        Description: Allow the specified commands to be used. Separated by comma.
-#
+#    GmCommandsModule.DefaultLevel
+#        Description: Default GM level assigned to managed accounts that do not define their own level.
+#                     The value is clamped between SEC_PLAYER (0) and SEC_ADMINISTRATOR (3).
+#        Default:     0 - SEC_PLAYER
 #
 
-GmCommandsModule.AllowedCommands = ""
+GmCommandsModule.DefaultLevel = 0
+
+#
+#    GmCommandsModule.DefaultCommands
+#        Description: Default comma separated list of commands (case-insensitive) allowed to managed accounts
+#                     when a specific command list is not defined for the account. Commands that require
+#                     security level 0 are always allowed.
+#        Default:     ""
+#
+
+GmCommandsModule.DefaultCommands = ""
+
+#
+# Per-account overrides
+#
+#    GmCommandsModule.Account.<AccountId>.Level
+#        Description: Override the GM level for the specified account id.
+#                     Omit this entry to use `GmCommandsModule.DefaultLevel`.
+#        Example:     GmCommandsModule.Account.42.Level = 2
+#
+#    GmCommandsModule.Account.<AccountId>.Commands
+#        Description: Override the allowed commands for the specified account id. Provide a comma
+#                     separated, case-insensitive list. Leave unset to inherit `GmCommandsModule.DefaultCommands`.
+#        Example:     GmCommandsModule.Account.42.Commands = "gm, gm visible, account"
+#

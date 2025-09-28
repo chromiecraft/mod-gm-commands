@@ -1,23 +1,51 @@
 #ifndef DEF_GMCOMMANDS_H
 #define DEF_GMCOMMANDS_H
 
-#include "Player.h"
-#include "Config.h"
+#include "Common.h"
+#include <optional>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+
+class ChatHandler;
 
 class GMCommands
 {
 public:
     static GMCommands* instance();
 
-    void LoadAccountIds();
-    void LoadAllowedCommands();
+    void Reload();
 
     [[nodiscard]] bool IsAccountAllowed(uint32 accountId) const;
-    [[nodiscard]] bool IsCommandAllowed(std::string command) const;
+    [[nodiscard]] AccountTypes GetAccountLevel(uint32 accountId) const;
+    [[nodiscard]] bool IsCommandAllowed(uint32 accountId, std::string_view command) const;
+
+    void RememberCommandMetadata(std::string_view command, uint32 requiredLevel);
+    void RememberHandlerCommand(ChatHandler const* handler, std::string_view command);
+    [[nodiscard]] std::optional<std::string> GetHandlerCommand(ChatHandler const* handler) const;
+    [[nodiscard]] std::optional<uint32> GetCommandRequiredLevel(std::string_view command) const;
 
 private:
-    std::vector<uint32> accountIDs;
-    std::vector<std::string> allowedCommands;
+    using CommandSet = std::unordered_set<std::string>;
+
+    struct AccountConfiguration
+    {
+        std::optional<AccountTypes> Level;
+        std::optional<CommandSet> Commands;
+    };
+
+    [[nodiscard]] CommandSet const& GetCommandSetForAccount(uint32 accountId) const;
+    static std::string NormalizeCommand(std::string_view command);
+    static AccountTypes NormalizeLevel(uint32 level, std::string_view context);
+    static void LogInvalidAccountId(std::string_view token);
+
+    AccountTypes _defaultLevel = SEC_PLAYER;
+    CommandSet _defaultCommands;
+    std::unordered_set<uint32> _accounts;
+    std::unordered_map<uint32, AccountConfiguration> _accountConfigurations;
+
+    std::unordered_map<std::string, uint32> _commandPermissions;
+    mutable std::unordered_map<ChatHandler const*, std::string> _lastCommandByHandler;
 };
 
 #define sGMCommands GMCommands::instance()
