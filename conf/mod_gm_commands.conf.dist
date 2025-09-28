@@ -38,7 +38,6 @@ GmCommandsModule.DefaultLevel = 0
 #        Description: Default comma separated list of commands (case-insensitive) allowed to managed accounts
 #                     when a specific command list is not defined for the account. Commands that require
 #                     security level 0 are always allowed.
-#        Note:        The legacy key `GmCommandsModule.AllowedCommands` is still recognised as a fallback.
 #        Default:     ""
 #
 
