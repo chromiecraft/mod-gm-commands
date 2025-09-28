@@ -396,9 +396,9 @@ public:
             return true;
 
         if (!sGMCommands->IsCommandAllowed(accountId, name))
-            return true;            // lascia il controllo standard (li nascondi / blocchi)
+            return true;
 
-        return false;               // comando whitelist: salta who.IsAvailable()
+        return false;
     }
 
     bool OnTryExecuteCommand(ChatHandler& handler, std::string_view /*cmdStr*/) override
