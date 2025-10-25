@@ -44,15 +44,67 @@ GmCommandsModule.DefaultLevel = 0
 GmCommandsModule.DefaultCommands = ""
 
 #
-# Per-account overrides
+# Presets
+#
+#    GmCommandsModule.Presets
+#        Description: Comma separated list of preset names. Each preset can define a level and command list
+#                     that can be assigned to one or more accounts.
+#        Default:     ""
+#
+
+GmCommandsModule.Presets = ""
+
+#
+#    GmCommandsModule.Preset.<PresetName>.Level
+#        Description: GM level for this preset. Value is clamped between SEC_PLAYER (0) and SEC_ADMINISTRATOR (3).
+#        Example:     GmCommandsModule.Preset.tv_account.Level = 1
+#
+#    GmCommandsModule.Preset.<PresetName>.Commands
+#        Description: Comma separated, case-insensitive list of commands allowed for this preset.
+#        Example:     GmCommandsModule.Preset.tv_account.Commands = "gm, gm visible, appear, go, teleport, gm fly"
+#
+
+#
+# Account configuration
+#
+# Precedence: Defaults (lowest) < Preset < Per-account overrides (highest)
+#
+#    GmCommandsModule.Account.<AccountId>.Preset
+#        Description: Assign a preset to this account. The preset's level and commands will be applied.
+#                     Only one preset per account is allowed; multiple assignments will log a warning.
+#        Example:     GmCommandsModule.Account.42.Preset = "tv_account"
 #
 #    GmCommandsModule.Account.<AccountId>.Level
-#        Description: Override the GM level for the specified account id.
-#                     Omit this entry to use `GmCommandsModule.DefaultLevel`.
+#        Description: Override the GM level for the specified account id. This takes precedence over
+#                     the preset level and the default level.
 #        Example:     GmCommandsModule.Account.42.Level = 2
 #
 #    GmCommandsModule.Account.<AccountId>.Commands
-#        Description: Override the allowed commands for the specified account id. Provide a comma
-#                     separated, case-insensitive list. Leave unset to inherit `GmCommandsModule.DefaultCommands`.
+#        Description: Override the allowed commands for the specified account id. This takes precedence
+#                     over the preset commands and the default commands. Provide a comma separated,
+#                     case-insensitive list.
 #        Example:     GmCommandsModule.Account.42.Commands = "gm, gm visible, account"
 #
+
+#
+# Example configuration with presets:
+#
+# GmCommandsModule.Enable = 1
+# GmCommandsModule.AccountIds = "3,4,5"
+# GmCommandsModule.DefaultLevel = 0
+# GmCommandsModule.DefaultCommands = ""
+#
+# GmCommandsModule.Presets = "tv_account, gm_helper"
+#
+# GmCommandsModule.Preset.tv_account.Level = 1
+# GmCommandsModule.Preset.tv_account.Commands = "gm, gm visible, appear, go, teleport, gm fly"
+#
+# GmCommandsModule.Preset.gm_helper.Level = 2
+# GmCommandsModule.Preset.gm_helper.Commands = "ticket, summon, learn, gm on, gm off"
+#
+# GmCommandsModule.Account.3.Preset = "tv_account"
+# GmCommandsModule.Account.4.Preset = "gm_helper"
+# GmCommandsModule.Account.5.Preset = "tv_account"
+# GmCommandsModule.Account.5.Commands = "gm, gm visible, appear, go, teleport, gm fly, gmannounce"
+#
+

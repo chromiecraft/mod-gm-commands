@@ -23,6 +23,7 @@ namespace
     constexpr char const* ACCOUNT_IDS_KEY = "GmCommandsModule.AccountIds";
     constexpr char const* DEFAULT_COMMANDS_KEY = "GmCommandsModule.DefaultCommands";
     constexpr char const* DEFAULT_LEVEL_KEY = "GmCommandsModule.DefaultLevel";
+    constexpr char const* PRESETS_KEY = "GmCommandsModule.Presets";
     constexpr char const* MODULE_CONFIG_FILE = "mod_gm_commands.conf";
     constexpr char const* MODULE_CONFIG_DIST_FILE = "mod_gm_commands.conf.dist";
 
@@ -30,6 +31,7 @@ namespace
     {
         std::optional<uint32> Level;
         std::optional<std::string> Commands;
+        std::optional<std::string> Preset;
     };
 
     template <typename T>
@@ -99,6 +101,11 @@ namespace
                     if (!value.empty())
                         entry.Commands = value;
                 }
+                else if (field == "Preset")
+                {
+                    if (!value.empty())
+                        entry.Preset = value;
+                }
             }
         }
 
@@ -115,15 +122,13 @@ GMCommands* GMCommands::instance()
 void GMCommands::Reload()
 {
     _accounts.clear();
+    _presets.clear();
+    _accountToPreset.clear();
     _accountConfigurations.clear();
+    _effectiveConfigs.clear();
     _defaultCommands.clear();
     _commandPermissions.clear();
     _lastCommandByHandler.clear();
-
-    uint32 defaultLevelRaw = sConfigMgr->GetOption<uint32>(DEFAULT_LEVEL_KEY, SEC_PLAYER);
-    _defaultLevel = NormalizeLevel(defaultLevelRaw, DEFAULT_LEVEL_KEY);
-
-    std::string defaultCommandsConfig = sConfigMgr->GetOption<std::string>(DEFAULT_COMMANDS_KEY, "");
 
     auto const buildCommandListString = [](CommandSet const& commands)
     {
@@ -144,6 +149,11 @@ void GMCommands::Reload()
         return stream.str();
     };
 
+    // Step 1: Load defaults
+    uint32 defaultLevelRaw = sConfigMgr->GetOption<uint32>(DEFAULT_LEVEL_KEY, SEC_PLAYER);
+    _defaultLevel = NormalizeLevel(defaultLevelRaw, DEFAULT_LEVEL_KEY);
+
+    std::string defaultCommandsConfig = sConfigMgr->GetOption<std::string>(DEFAULT_COMMANDS_KEY, "");
     for (std::string_view token : Acore::Tokenize(defaultCommandsConfig, ',', false))
     {
         std::string normalized = NormalizeCommand(token);
@@ -153,8 +163,41 @@ void GMCommands::Reload()
 
     LOG_INFO("modules.gmcommands", "GmCommands: default level {} with commands [{}]", _defaultLevel, buildCommandListString(_defaultCommands));
 
+    // Step 2: Load presets
+    std::string presetsConfig = sConfigMgr->GetOption<std::string>(PRESETS_KEY, "");
+    if (!presetsConfig.empty())
+    {
+        for (std::string_view presetName : Acore::Tokenize(presetsConfig, ',', false))
+        {
+            std::string presetNameStr = NormalizeCommand(presetName);
+            if (presetNameStr.empty())
+                continue;
+
+            Preset preset;
+
+            std::string presetLevelKey = Acore::StringFormat("GmCommandsModule.Preset.{}.Level", presetNameStr);
+            uint32 presetLevelRaw = sConfigMgr->GetOption<uint32>(presetLevelKey, SEC_PLAYER);
+            preset.Level = NormalizeLevel(presetLevelRaw, presetLevelKey);
+
+            std::string presetCommandsKey = Acore::StringFormat("GmCommandsModule.Preset.{}.Commands", presetNameStr);
+            std::string presetCommandsConfig = sConfigMgr->GetOption<std::string>(presetCommandsKey, "");
+            for (std::string_view cmd : Acore::Tokenize(presetCommandsConfig, ',', false))
+            {
+                std::string normalized = NormalizeCommand(cmd);
+                if (!normalized.empty())
+                    preset.Commands.insert(std::move(normalized));
+            }
+
+            _presets[presetNameStr] = std::move(preset);
+            LOG_INFO("modules.gmcommands", "GmCommands: registered preset '{}' with level {} and commands [{}]", 
+                     presetNameStr, _presets[presetNameStr].Level, buildCommandListString(_presets[presetNameStr].Commands));
+        }
+    }
+
+    // Step 3: Read file overrides (includes preset assignments)
     std::unordered_map<uint32, FileAccountOverrides> const fileOverrides = ReadAccountOverridesFromConfigFiles();
 
+    // Step 4: Load account list and build configurations
     std::string accountIds = sConfigMgr->GetOption<std::string>(ACCOUNT_IDS_KEY, "");
     for (std::string_view token : Acore::Tokenize(accountIds, ',', false))
     {
@@ -174,6 +217,36 @@ void GMCommands::Reload()
         if (!_accounts.insert(accountId).second)
             continue;
 
+        // Check for preset assignment
+        std::string presetAssignmentKey = Acore::StringFormat("GmCommandsModule.Account.{}.Preset", accountId);
+        std::string presetName = GetOptionWithoutLog(presetAssignmentKey, std::string{});
+        if (presetName.empty())
+        {
+            if (auto const fileOverrideIt = fileOverrides.find(accountId); fileOverrideIt != fileOverrides.end() && fileOverrideIt->second.Preset)
+                presetName = *fileOverrideIt->second.Preset;
+        }
+
+        if (!presetName.empty())
+        {
+            std::string normalizedPresetName = NormalizeCommand(presetName);
+            if (_presets.find(normalizedPresetName) != _presets.end())
+            {
+                // Check for duplicate preset assignment
+                if (_accountToPreset.find(accountId) != _accountToPreset.end())
+                {
+                    LOG_WARN("modules.gmcommands", "GmCommands: account {} has multiple preset assignments; using last assignment '{}'", 
+                             accountId, normalizedPresetName);
+                }
+                _accountToPreset[accountId] = normalizedPresetName;
+            }
+            else
+            {
+                LOG_WARN("modules.gmcommands", "GmCommands: account {} assigned unknown preset '{}'; ignoring assignment", 
+                         accountId, normalizedPresetName);
+            }
+        }
+
+        // Load per-account overrides
         AccountConfiguration config;
 
         std::string levelKey = Acore::StringFormat("GmCommandsModule.Account.{}.Level", accountId);
@@ -207,22 +280,81 @@ void GMCommands::Reload()
         }
 
         if (config.Level || config.Commands)
-        {
-            auto [it, inserted] = _accountConfigurations.emplace(accountId, std::move(config));
-            if (inserted)
-            {
-                std::string const levelStr = it->second.Level ? std::to_string(*it->second.Level) : "<inherit>";
-                std::string const commandStr = it->second.Commands ? buildCommandListString(*it->second.Commands) : "<inherit>";
-                LOG_INFO("modules.gmcommands", "GmCommands: configured account {} level {} commands [{}]", accountId, levelStr, commandStr);
-            }
-        }
-        else
-        {
-            LOG_INFO("modules.gmcommands", "GmCommands: managing account {} with inherited settings", accountId);
-        }
+            _accountConfigurations[accountId] = std::move(config);
     }
 
-    LOG_INFO("modules.gmcommands", "GmCommands: managing {} accounts", _accounts.size());
+    // Step 5: Build effective configurations
+    BuildEffectiveConfigs();
+
+    LOG_INFO("modules.gmcommands", "GmCommands: managing {} accounts with {} presets", _accounts.size(), _presets.size());
+}
+
+void GMCommands::BuildEffectiveConfigs()
+{
+    auto const buildCommandListString = [](CommandSet const& commands)
+    {
+        if (commands.empty())
+            return std::string{};
+
+        std::ostringstream stream;
+        bool first = true;
+        for (std::string const& cmd : commands)
+        {
+            if (!first)
+                stream << ",";
+
+            stream << cmd;
+            first = false;
+        }
+
+        return stream.str();
+    };
+
+    for (uint32 accountId : _accounts)
+    {
+        EffectiveAccountConfig effective;
+
+        // Start with defaults
+        effective.Level = _defaultLevel;
+        effective.Commands = _defaultCommands;
+
+        // Apply preset if assigned
+        auto presetIt = _accountToPreset.find(accountId);
+        if (presetIt != _accountToPreset.end())
+        {
+            auto const& preset = _presets.at(presetIt->second);
+            effective.Level = preset.Level;
+            effective.Commands = preset.Commands;
+        }
+
+        // Apply per-account overrides
+        auto configIt = _accountConfigurations.find(accountId);
+        if (configIt != _accountConfigurations.end())
+        {
+            if (configIt->second.Level)
+                effective.Level = *configIt->second.Level;
+            if (configIt->second.Commands)
+                effective.Commands = *configIt->second.Commands;
+        }
+
+        _effectiveConfigs[accountId] = effective;
+
+        // Log the resolved configuration
+        std::string source = "defaults";
+        if (presetIt != _accountToPreset.end())
+        {
+            source = Acore::StringFormat("preset '{}'", presetIt->second);
+            if (configIt != _accountConfigurations.end() && (configIt->second.Level || configIt->second.Commands))
+                source += " + overrides";
+        }
+        else if (configIt != _accountConfigurations.end() && (configIt->second.Level || configIt->second.Commands))
+        {
+            source = "overrides";
+        }
+
+        LOG_INFO("modules.gmcommands", "GmCommands: account {} resolved from {} -> level {} commands [{}]", 
+                 accountId, source, effective.Level, buildCommandListString(effective.Commands));
+    }
 }
 
 bool GMCommands::IsAccountAllowed(uint32 accountId) const
@@ -235,9 +367,9 @@ AccountTypes GMCommands::GetAccountLevel(uint32 accountId) const
     if (!IsAccountAllowed(accountId))
         return SEC_PLAYER;
 
-    auto const configIt = _accountConfigurations.find(accountId);
-    if (configIt != _accountConfigurations.end() && configIt->second.Level)
-        return *configIt->second.Level;
+    auto const it = _effectiveConfigs.find(accountId);
+    if (it != _effectiveConfigs.end())
+        return it->second.Level;
 
     return _defaultLevel;
 }
@@ -308,9 +440,9 @@ std::optional<uint32> GMCommands::GetCommandRequiredLevel(std::string_view comma
 
 GMCommands::CommandSet const& GMCommands::GetCommandSetForAccount(uint32 accountId) const
 {
-    auto const it = _accountConfigurations.find(accountId);
-    if (it != _accountConfigurations.end() && it->second.Commands)
-        return *it->second.Commands;
+    auto const it = _effectiveConfigs.find(accountId);
+    if (it != _effectiveConfigs.end())
+        return it->second.Commands;
 
     return _defaultCommands;
 }

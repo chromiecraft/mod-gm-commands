@@ -28,21 +28,37 @@ public:
 private:
     using CommandSet = std::unordered_set<std::string>;
 
+    struct Preset
+    {
+        AccountTypes Level = SEC_PLAYER;
+        CommandSet Commands;
+    };
+
     struct AccountConfiguration
     {
         std::optional<AccountTypes> Level;
         std::optional<CommandSet> Commands;
     };
 
+    struct EffectiveAccountConfig
+    {
+        AccountTypes Level = SEC_PLAYER;
+        CommandSet Commands;
+    };
+
     [[nodiscard]] CommandSet const& GetCommandSetForAccount(uint32 accountId) const;
     static std::string NormalizeCommand(std::string_view command);
     static AccountTypes NormalizeLevel(uint32 level, std::string_view context);
     static void LogInvalidAccountId(std::string_view token);
+    void BuildEffectiveConfigs();
 
     AccountTypes _defaultLevel = SEC_PLAYER;
     CommandSet _defaultCommands;
     std::unordered_set<uint32> _accounts;
+    std::unordered_map<std::string, Preset> _presets;
+    std::unordered_map<uint32, std::string> _accountToPreset;
     std::unordered_map<uint32, AccountConfiguration> _accountConfigurations;
+    std::unordered_map<uint32, EffectiveAccountConfig> _effectiveConfigs;
 
     std::unordered_map<std::string, uint32> _commandPermissions;
     mutable std::unordered_map<ChatHandler const*, std::string> _lastCommandByHandler;
