@@ -23,6 +23,7 @@ WHERE `name` IN (
     'gobject',
     'gobject near', -- Matches live
     'gobject target', -- Matches live
+    'gps',
     'help',
     'npc',
     'npc info', -- Matches live
@@ -99,7 +100,6 @@ WHERE `name` IN (
     'go zonexy',
     'gobject activate', -- Matches live
     'gobject info',
-    'gps',
     'guild info',
     'instance',
     'instance getbossstate',
