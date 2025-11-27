@@ -23,9 +23,11 @@ WHERE `name` IN (
     'gobject',
     'gobject near', -- Matches live
     'gobject target', -- Matches live
+    'gps',
     'help',
     'npc',
     'npc info', -- Matches live
+    'npc near',
     'save',
     'server',
     'server info',
