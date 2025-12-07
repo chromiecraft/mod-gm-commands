@@ -84,6 +84,7 @@ WHERE `name` IN (
     'gm chat', -- Matches live
     'gm fly', -- Matches live
     'gm ingame', -- Matches live
+    'gm spectator',
     'gm visible', -- Matches live
     'gmannounce', -- Matches live
     'gmnameannounce', -- Matches live
