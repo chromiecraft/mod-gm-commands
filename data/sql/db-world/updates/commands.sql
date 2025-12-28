@@ -28,6 +28,8 @@ WHERE `name` IN (
     'npc',
     'npc info', -- Matches live
     'npc near',
+    'quest',
+    'quest status',
     'save',
     'server',
     'server info',
@@ -84,6 +86,7 @@ WHERE `name` IN (
     'gm chat', -- Matches live
     'gm fly', -- Matches live
     'gm ingame', -- Matches live
+    'gm spectator',
     'gm visible', -- Matches live
     'gmannounce', -- Matches live
     'gmnameannounce', -- Matches live
@@ -101,7 +104,6 @@ WHERE `name` IN (
     'go zonexy',
     'gobject activate', -- Matches live
     'gobject info',
-    'gps',
     'guild info',
     'instance',
     'instance getbossstate',
@@ -175,7 +177,6 @@ WHERE `name` IN (
     'mutehistory', -- Matches live
     'neargrave',
     'npc guid',
-    'npc near',
     'npc playemote',
     'npc say',
     'npc textemote',
