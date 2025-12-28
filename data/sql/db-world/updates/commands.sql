@@ -28,6 +28,8 @@ WHERE `name` IN (
     'npc',
     'npc info', -- Matches live
     'npc near',
+    'quest',
+    'quest status',
     'save',
     'server',
     'server info',
