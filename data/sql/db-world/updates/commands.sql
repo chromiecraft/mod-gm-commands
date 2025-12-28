@@ -104,7 +104,6 @@ WHERE `name` IN (
     'go zonexy',
     'gobject activate', -- Matches live
     'gobject info',
-    'gps',
     'guild info',
     'instance',
     'instance getbossstate',
@@ -178,7 +177,6 @@ WHERE `name` IN (
     'mutehistory', -- Matches live
     'neargrave',
     'npc guid',
-    'npc near',
     'npc playemote',
     'npc say',
     'npc textemote',
