@@ -1,3 +1,4 @@
+-- Updated 09/01/2026
 -- lvl 0: Player
 -- lvl 1: GM T0 (Triager)
 -- lvl 2: GM T1 (Entertainer/Moderator)
