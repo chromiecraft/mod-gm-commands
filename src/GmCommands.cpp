@@ -189,7 +189,7 @@ void GMCommands::Reload()
             }
 
             _presets[presetNameStr] = std::move(preset);
-            LOG_INFO("modules.gmcommands", "GmCommands: registered preset '{}' with level {} and commands [{}]", 
+            LOG_INFO("modules.gmcommands", "GmCommands: registered preset '{}' with level {} and commands [{}]",
                      presetNameStr, _presets[presetNameStr].Level, buildCommandListString(_presets[presetNameStr].Commands));
         }
     }
@@ -234,14 +234,14 @@ void GMCommands::Reload()
                 // Check for duplicate preset assignment
                 if (_accountToPreset.find(accountId) != _accountToPreset.end())
                 {
-                    LOG_WARN("modules.gmcommands", "GmCommands: account {} has multiple preset assignments; using last assignment '{}'", 
+                    LOG_WARN("modules.gmcommands", "GmCommands: account {} has multiple preset assignments; using last assignment '{}'",
                              accountId, normalizedPresetName);
                 }
                 _accountToPreset[accountId] = normalizedPresetName;
             }
             else
             {
-                LOG_WARN("modules.gmcommands", "GmCommands: account {} assigned unknown preset '{}'; ignoring assignment", 
+                LOG_WARN("modules.gmcommands", "GmCommands: account {} assigned unknown preset '{}'; ignoring assignment",
                          accountId, normalizedPresetName);
             }
         }
@@ -352,7 +352,7 @@ void GMCommands::BuildEffectiveConfigs()
             source = "overrides";
         }
 
-        LOG_INFO("modules.gmcommands", "GmCommands: account {} resolved from {} -> level {} commands [{}]", 
+        LOG_INFO("modules.gmcommands", "GmCommands: account {} resolved from {} -> level {} commands [{}]",
                  accountId, source, effective.Level, buildCommandListString(effective.Commands));
     }
 }

@@ -252,6 +252,7 @@ WHERE `name` IN (
     'character changerace',
     'character customize',
     'commentator',
+    'damage',
     'debug play', -- Matches live
     'debug play cinematic', -- Matches live
     'debug play movie', -- Matches live
@@ -401,7 +402,6 @@ WHERE `name` IN (
     'character deleted restore',
     'character level',
     'cometome',
-    'damage',
     'debug anim',
     'debug areatriggers',
     'debug arena',
