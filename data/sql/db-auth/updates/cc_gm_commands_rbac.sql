@@ -83,6 +83,14 @@ INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALU
 
 -- Player -> role 1010
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+-- Cross-faction interactions (stock #24641 grants these to role 194 only;
+-- ChromieCraft is cross-faction by design so we hoist them to Player tier).
+(1010,  25), -- allow say chat between factions
+(1010,  26), -- allow channel chat between factions
+(1010,  27), -- two side mail interaction
+(1010,  28), -- see two side who list
+(1010,  29), -- add friends of other faction
+(1010,  51), -- allow trading between factions
 (1010, 394), -- gobject near
 (1010, 398), -- gobject target
 (1010, 593), -- npc info (also gates `.npc guid`, which old commands.sql
