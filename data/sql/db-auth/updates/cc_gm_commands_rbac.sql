@@ -35,8 +35,26 @@
 -- Auto-grants are expressed via `rbac_default_permissions`, which has
 -- a `realmId` column (default -1 = all realms) and is the canonical
 -- mechanism for "give every account at sec level N this permission".
--- These rows are ADDITIVE to the stock #24641 defaults (which assign
--- roles 192-195 to sec levels 0-3); they do not replace them.
+-- This module REPLACES the stock #24641 default rows (which assign
+-- roles 192-195 to sec levels 0-3); it does not augment them.
+--
+-- !! INVASIVE CHANGE -- READ BEFORE DEPLOYING !!
+-- The stock roles 192-195 carry GAMEPLAY perms (Join BG, Join Arenas,
+-- Join Dungeon Finder, Skip Queue, Skip idle/spam/overspeed checks,
+-- Log GM trades, two-side character creation, etc.) on top of the
+-- command-bucket links. Removing the stock default rows strips those
+-- gameplay perms from every account. Specifically:
+--   * sec 0 (Player) loses: Join BG / Random BG / Arenas / Dungeon
+--     Finder, two-side char creation, email-confirm-for-password.
+--   * sec 1 (Moderator) loses: Instant logout, Skip Queue, Skip idle
+--     connection / spam / overspeed checks, Cannot earn realm first
+--     achievements, Log GM trades, and the full "skip check" suite.
+--   * sec 2/3 (GM/Admin) lose the same plus their inherited GM/Admin
+--     skip-check perms.
+-- This is a deliberate ChromieCraft choice: we want only the curated
+-- command set this module defines, with no implicit perks. If a perk
+-- is needed back, re-grant it explicitly via rbac_account_permissions
+-- or by re-adding the relevant stock row.
 --
 --   secId 0 (Player)
 --     * (0, 1010, -1)  GM Curated Player on every realm
@@ -96,6 +114,18 @@ DELETE FROM `rbac_linked_permissions`
     WHERE `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
 
+-- Strip the stock #24641 sec-level default rows. This removes the
+-- inherited gameplay perms documented in the header. Re-running the
+-- migration is safe; the rows below will re-insert only the module
+-- defaults, never the stock ones.
+DELETE FROM `rbac_default_permissions`
+    WHERE (`secId`, `permissionId`, `realmId`) IN (
+        (3, 192, -1),  -- Admin     -> Sec Level Administrator
+        (2, 193, -1),  -- GM        -> Sec Level Gamemaster
+        (1, 194, -1),  -- Moderator -> Sec Level Moderator
+        (0, 195, -1)   -- Player    -> Sec Level Player
+    );
+
 -- Define the PTR role + the five GM tier roles.
 INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1000, 'Role: PTR Player'),
@@ -116,8 +146,9 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 
 -- Default permissions per sec level + realm.
 --   realmId = -1 means "all realms"; any other value scopes to one
---   realm. Realm 2 is PTR. These rows are additive to the stock
---   #24641 defaults (which assign roles 192-195 to sec levels 0-3).
+--   realm. Realm 2 is PTR. These rows REPLACE the stock #24641
+--   defaults that were dropped above; sec-N accounts now have only
+--   the module roles, with no inherited gameplay perks.
 INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALUES
 (0, 1010, -1), -- Player        gets GM Curated Player on every realm
 (0, 1000,  2), -- Player        gets PTR Player on realm 2 (PTR) only
