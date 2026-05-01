@@ -42,8 +42,15 @@ INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1013, 'Role: GM Protector (T2)'),
 (1014, 'Role: GM Administrator');
 
--- GM tier inheritance.
+-- GM tier inheritance + base Player role linkage.
+-- 1010 -> 195 and 1000 -> 195 restore stock player perks (Join BG/Arenas/
+-- Dungeon Finder, two-side char creation, email-confirm-for-pass-change,
+-- plus the 199 command bucket) that the stripped (0,195,-1) default would
+-- otherwise have lost. Both module player-tier roles link to 195 so each
+-- works standalone if the other is removed.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1000,  195),
+(1010,  195),
 (1011, 1010),
 (1012, 1011),
 (1013, 1012),
