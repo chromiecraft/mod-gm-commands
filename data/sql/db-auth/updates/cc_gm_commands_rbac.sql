@@ -1,132 +1,39 @@
--- ============================================================================
--- GM command tiers via RBAC (replaces data/sql/db-world/updates/commands.sql)
+-- ChromieCraft RBAC roles (replaces world-DB commands.sql, depends on #24641).
+-- Also absorbs the PTR Player role from mod-ptr-changes.
 --
--- AzerothCore PR #24641 (RBAC) replaces `command.security`-based gating with
--- the rbac_* tables in the auth DB. The old commands.sql file (5 UPDATE
--- blocks setting `command.security` to tier values 0-4) is now a silent
--- no-op for any command whose registered RBAC permission ID is >= 200,
--- which is every core command after the port.
+--   1000  PTR Player                (sec 0, realm 2 only)
+--   1010  GM Curated Player         (sec 0, all realms)
+--   1011  GM Triager (T0)           (sec 1)
+--   1012  GM Entertainer (T1)       (sec 2)
+--   1013  GM Protector (T2)         (no default; reachable via 1014)
+--   1014  GM Administrator          (sec 3)
 --
--- This file ports the module's tier model to native RBAC roles, AND
--- absorbs the previously-separate "PTR Player" role from
--- mod-ptr-changes (consolidated here to keep all chromiecraft RBAC
--- definitions in one module):
+-- GM tier inheritance: 1014 -> 1013 -> 1012 -> 1011 -> 1010.
+-- PTR Player is independent of the GM chain.
 --
---     id 1000  Role: PTR Player               (was mod-ptr-changes)
---     id 1010  Role: GM Curated Player        (was sec 0 / Player tier)
---     id 1011  Role: GM Triager   (T0)        (was sec 1)
---     id 1012  Role: GM Entertainer (T1)      (was sec 2)
---     id 1013  Role: GM Protector (T2)        (was sec 3)
---     id 1014  Role: GM Administrator         (was sec 4)
+-- WARNING: this migration DELETES the stock #24641 default rows
+-- (3,192,-1) (2,193,-1) (1,194,-1) (0,195,-1). Doing so strips the
+-- gameplay perks those roles carried (Join BG/Arenas/Dungeon Finder,
+-- two-side char creation, Instant logout, Skip Queue, the GM/Admin
+-- "skip check" suite, etc.). This is intentional: only the curated
+-- command set defined here is granted. Re-add specific perks via
+-- rbac_account_permissions or by restoring the relevant stock row.
 --
--- The PTR Player role is independent of the GM tier hierarchy: it
--- mirrors the old cc_ptr_commands.sql intent of exposing many
--- ordinarily-GM commands to ALL sec-0 accounts on a PTR realm, where
--- the GM tier hierarchy is a different concept (per-account curation).
---
--- Inheritance for the GM tiers follows the original module's "higher
--- tier sees lower tier" behaviour (a sec-2 user could use sec-0
--- commands, etc.):
---     1011 -> 1010
---     1012 -> 1011
---     1013 -> 1012
---     1014 -> 1013
---
--- Auto-grants are expressed via `rbac_default_permissions`, which has
--- a `realmId` column (default -1 = all realms) and is the canonical
--- mechanism for "give every account at sec level N this permission".
--- This module REPLACES the stock #24641 default rows (which assign
--- roles 192-195 to sec levels 0-3); it does not augment them.
---
--- !! INVASIVE CHANGE -- READ BEFORE DEPLOYING !!
--- The stock roles 192-195 carry GAMEPLAY perms (Join BG, Join Arenas,
--- Join Dungeon Finder, Skip Queue, Skip idle/spam/overspeed checks,
--- Log GM trades, two-side character creation, etc.) on top of the
--- command-bucket links. Removing the stock default rows strips those
--- gameplay perms from every account. Specifically:
---   * sec 0 (Player) loses: Join BG / Random BG / Arenas / Dungeon
---     Finder, two-side char creation, email-confirm-for-password.
---   * sec 1 (Moderator) loses: Instant logout, Skip Queue, Skip idle
---     connection / spam / overspeed checks, Cannot earn realm first
---     achievements, Log GM trades, and the full "skip check" suite.
---   * sec 2/3 (GM/Admin) lose the same plus their inherited GM/Admin
---     skip-check perms.
--- This is a deliberate ChromieCraft choice: we want only the curated
--- command set this module defines, with no implicit perks. If a perk
--- is needed back, re-grant it explicitly via rbac_account_permissions
--- or by re-adding the relevant stock row.
---
---   secId 0 (Player)
---     * (0, 1010, -1)  GM Curated Player on every realm
---     * (0, 1000,  2)  PTR Player on realm 2 (PTR) only
---   secId 1 (Moderator)
---     * (1, 1011, -1)  GM Triager (T0); inherits 1010
---   secId 2 (Gamemaster)
---     * (2, 1012, -1)  GM Entertainer (T1); inherits 1011 -> 1010
---   secId 3 (Administrator)
---     * (3, 1014, -1)  GM Administrator; inherits 1013 -> 1012 -> 1011
---                      -> 1010
---
--- The PTR Player role is granted only at sec 0 on realm 2; higher sec
--- levels on realm 2 already have most/all of those commands via the
--- GM tier hierarchy and do not need an extra grant. To shadow PTR on
--- another realm, change the realmId on the (0, 1000, ?) row.
---
--- The GM Protector tier (1013) has no direct default-permissions row
--- because it is reached via inheritance from 1014 at sec 3. If your
--- staffing model has a sec level between GM and Admin (e.g. a custom
--- SEC_HEAD_GM) you can add (<secId>, 1013, -1) here.
---
--- The Triager / Entertainer / Administrator roles (1011, 1012, 1014)
--- are defaulted to sec levels 1, 2, 3 respectively (see the
--- rbac_default_permissions block below), so any account whose stock
--- security level matches gets the corresponding tier automatically.
--- For finer-grained per-account assignments (the original cpp module's
--- whitelist feature), use `rbac_account_permissions`:
---   INSERT INTO rbac_account_permissions (accountId, permissionId, granted, realmId)
---   VALUES (<accountId>, 1012, 1, <realmId>);  -- give T1 to one account
---
--- IMPORTANT: this SQL alone does NOT replace the module's cpp gating engine
--- (src/GmCommands.cpp). Under PR #24641, that engine becomes redundant
--- with `rbac_account_permissions`; the maintainers should decide whether
--- to retire the cpp side entirely or keep it as a thin admin wrapper for
--- managing RBAC rows. See the corresponding PR description for context.
---
--- Why role IDs 1000 / 1010-1014:
---   * PR #24641 uses 1-913 for core perms and 100000+ for module perms
---     (auto-allocated via `module_rbac_permissions`). 1000 and
---     1010-1014 sit in the unused gap. The 9-row gap between 1000 and
---     1010 is a deliberate buffer for additional PTR-side roles if
---     they're ever needed.
---
--- 608 unique role-perm grant rows covering ~585 GM-tiered commands +
--- 131 PTR-tiered commands (with overlap; PTR shares many perms with
--- the GM tiers). Omitted commands are documented at the bottom.
+-- The cpp gating engine in src/GmCommands.cpp is unchanged; under
+-- RBAC it becomes redundant with rbac_account_permissions and should
+-- be revisited separately. Role IDs 1000 / 1010-1014 sit in the gap
+-- between core perms (1-913) and module perms (100000+).
 -- ============================================================================
 
--- Idempotency: drop role rows, inbound links, and default-permission
--- rows before re-creating. ON DELETE CASCADE on rbac_linked_permissions
--- clears outbound links when the role row is removed; we still clear
--- inbound links explicitly because the FK is on linkedId.
+-- Idempotent: clear our roles + the stock sec-level defaults, then re-insert.
 DELETE FROM `rbac_default_permissions`
-    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014);
+    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014)
+       OR (`secId`, `permissionId`, `realmId`) IN
+            ((3,192,-1), (2,193,-1), (1,194,-1), (0,195,-1));
 DELETE FROM `rbac_linked_permissions`
     WHERE `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
 
--- Strip the stock #24641 sec-level default rows. This removes the
--- inherited gameplay perms documented in the header. Re-running the
--- migration is safe; the rows below will re-insert only the module
--- defaults, never the stock ones.
-DELETE FROM `rbac_default_permissions`
-    WHERE (`secId`, `permissionId`, `realmId`) IN (
-        (3, 192, -1),  -- Admin     -> Sec Level Administrator
-        (2, 193, -1),  -- GM        -> Sec Level Gamemaster
-        (1, 194, -1),  -- Moderator -> Sec Level Moderator
-        (0, 195, -1)   -- Player    -> Sec Level Player
-    );
-
--- Define the PTR role + the five GM tier roles.
 INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1000, 'Role: PTR Player'),
 (1010, 'Role: GM Curated Player'),
@@ -135,26 +42,20 @@ INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1013, 'Role: GM Protector (T2)'),
 (1014, 'Role: GM Administrator');
 
--- Wire GM tier inheritance (1014 -> 1013 -> 1012 -> 1011 -> 1010).
--- The PTR Player role is intentionally not linked into the GM tier
--- chain; it is realm-scoped and conceptually independent.
+-- GM tier inheritance.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(1011, 1010), -- Triager      inherits GM Curated Player
-(1012, 1011), -- Entertainer  inherits Triager
-(1013, 1012), -- Protector    inherits Entertainer
-(1014, 1013); -- Administrator inherits Protector
+(1011, 1010),
+(1012, 1011),
+(1013, 1012),
+(1014, 1013);
 
--- Default permissions per sec level + realm.
---   realmId = -1 means "all realms"; any other value scopes to one
---   realm. Realm 2 is PTR. These rows REPLACE the stock #24641
---   defaults that were dropped above; sec-N accounts now have only
---   the module roles, with no inherited gameplay perks.
+-- Sec-level defaults (realmId -1 = all, 2 = PTR).
 INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALUES
-(0, 1010, -1), -- Player        gets GM Curated Player on every realm
-(0, 1000,  2), -- Player        gets PTR Player on realm 2 (PTR) only
-(1, 1011, -1), -- Moderator     gets GM Triager (T0)        [inherits 1010]
-(2, 1012, -1), -- Gamemaster    gets GM Entertainer (T1)    [inherits 1011]
-(3, 1014, -1); -- Administrator gets GM Administrator       [inherits 1013->1012->1011->1010]
+(0, 1010, -1), -- Player        -> GM Curated Player
+(0, 1000,  2), -- Player        -> PTR Player (realm 2)
+(1, 1011, -1), -- Moderator     -> GM Triager (T0)
+(2, 1012, -1), -- Gamemaster    -> GM Entertainer (T1)
+(3, 1014, -1); -- Administrator -> GM Administrator
 
 
 -- Player -> role 1010
@@ -649,21 +550,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1014, 732), -- server set loglevel
 (1014, 753); -- ticket reset
 
--- ============================================================================
--- PTR Player -> role 1000 (absorbed from mod-ptr-changes)
---
--- This role expresses the old cc_ptr_commands.sql intent: expose ~131
--- ordinarily-GM commands to sec-0 accounts on the PTR realm only.
--- The auto-grant is realm-scoped via the
---   (secId=0, permissionId=1000, realmId=2)
--- row in `rbac_default_permissions` above. Other realms see the role
--- defined but inactive. To change the PTR realm ID, update that one
--- row's realmId column rather than re-running this whole migration.
---
--- The grant set OVERLAPS with the GM tier roles (e.g. cheat suite,
--- bf commands, debug 300). RBAC permits the same perm to be linked
--- from multiple roles; no collision occurs at insert time.
--- ============================================================================
+-- PTR Player (1000) -- absorbed from mod-ptr-changes; overlaps with GM tiers.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 267), -- cast
 (1000, 268), -- cast back
@@ -798,32 +685,13 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 737); -- teleport (renamed `tele` in #24641)
 
 -- ============================================================================
--- COMMANDS NOT GRANTED -- design notes for reviewers
--- ============================================================================
--- The original commands.sql tiered the following commands but they could not
--- be carried over to RBAC under PR #24641:
---
---   No matching perm in #24641 (probably dropped/renamed during the TC port):
---     gobject respawn, character deleted purge,
---     reset items all/allbags/bags/bank/currency/equipped/keyring/vendor_buyback,
---     inventory, inventory count, item move,
---     player learn, player unlearn, groupsummon,
---     teleport name npc guid/id/name
---
---   ChromieCraft custom commands not present in upstream AzerothCore:
---     bags, bags clear, wpgps
---
--- Parent commands without their own perm in #24641 (they are visible by
--- inference whenever any of their subcommands is granted, so no separate
--- linked-permissions row is needed):
---     gobject, npc, cache, character, cheat, event, instance, list, ban,
---     unban, baninfo, banlist, bf, honor, titles, titles set, gobject set,
---     lfg, achievement, settings, pdump
---
--- Non-core module commands referenced (granting these requires the owning
--- module to register module_rbac_permissions first):
---     spect, spect leave/reset/spectate/version/watch
---       (mod-spectator) -- mapped above to perms 899-904 because they
---       happen to exist in PR #24641's auth migration; verify those IDs
---       remain stable.
+-- Not granted (no perm in #24641, or visible-by-inference parents):
+--   missing perm: gobject respawn, character deleted purge, reset items *,
+--                 inventory, inventory count, item move, player learn,
+--                 player unlearn, groupsummon, teleport name npc *
+--   chromiecraft customs: bags, bags clear, wpgps
+--   parents (sub-grants imply visibility): gobject, npc, cache, character,
+--     cheat, event, instance, list, ban, unban, baninfo, banlist, bf, honor,
+--     titles, titles set, gobject set, lfg, achievement, settings, pdump
+--   spect commands map to 899-904 (mod-spectator); IDs depend on #24641 stability.
 -- ============================================================================
