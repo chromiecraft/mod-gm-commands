@@ -7,32 +7,49 @@
 -- no-op for any command whose registered RBAC permission ID is >= 200,
 -- which is every core command after the port.
 --
--- This file ports the module's tier model to native RBAC roles:
+-- This file ports the module's tier model to native RBAC roles, AND
+-- absorbs the previously-separate "PTR Player" role from
+-- mod-ptr-changes (consolidated here to keep all chromiecraft RBAC
+-- definitions in one module):
 --
+--     id 1000  Role: PTR Player               (was mod-ptr-changes)
 --     id 1010  Role: GM Curated Player        (was sec 0 / Player tier)
 --     id 1011  Role: GM Triager   (T0)        (was sec 1)
 --     id 1012  Role: GM Entertainer (T1)      (was sec 2)
 --     id 1013  Role: GM Protector (T2)        (was sec 3)
 --     id 1014  Role: GM Administrator         (was sec 4)
 --
--- Inheritance follows the original module's "higher tier sees lower tier"
--- behaviour (a sec-2 user could use sec-0 commands, etc.):
+-- The PTR Player role is independent of the GM tier hierarchy: it
+-- mirrors the old cc_ptr_commands.sql intent of exposing many
+-- ordinarily-GM commands to ALL sec-0 accounts on a PTR realm, where
+-- the GM tier hierarchy is a different concept (per-account curation).
+--
+-- Inheritance for the GM tiers follows the original module's "higher
+-- tier sees lower tier" behaviour (a sec-2 user could use sec-0
+-- commands, etc.):
 --     1011 -> 1010
 --     1012 -> 1011
 --     1013 -> 1012
 --     1014 -> 1013
 --
--- Auto-grants: only the GM Curated Player role (1010) is auto-linked into
--- a sec-level role -- specifically into role 199 (Player Commands), which
--- secId 0 inherits. The original module's "always allow SEC_PLAYER (0)"
--- semantics are reproduced this way: every player on the realm gains the
--- 24 GM-curated player-tier permissions.
+-- Auto-grants (rows linking into role 199 "Player Commands", which
+-- secId 0 inherits):
+--   * 1000 (PTR Player) -- exposes PTR-tester commands to all sec-0
+--     accounts. Disable on non-PTR realms by deleting the (199, 1000)
+--     row alone.
+--   * 1010 (GM Curated Player) -- preserves the old commands.sql
+--     "always allow SEC_PLAYER (0)" semantics.
 --
--- The Triager / Entertainer / Protector / Administrator roles (1011-1014)
--- are defined but NOT auto-linked to any sec-level role. They are intended
--- to be granted to specific accounts via `rbac_account_permissions`,
--- replacing the cpp module's per-account whitelist feature with a native
--- RBAC mechanism. Example:
+-- Both auto-grants coexist without collision: they are separate rows
+-- in `rbac_linked_permissions` (different linkedId values). The two
+-- roles' command-perm sets may overlap; RBAC tolerates the same perm
+-- being linked from multiple roles.
+--
+-- The Triager / Entertainer / Protector / Administrator roles
+-- (1011-1014) are defined but NOT auto-linked to any sec-level role.
+-- They are intended to be granted to specific accounts via
+-- `rbac_account_permissions`, replacing the cpp module's per-account
+-- whitelist feature with a native RBAC mechanism. Example:
 --   INSERT INTO rbac_account_permissions (accountId, permissionId, granted, realmId)
 --   VALUES (<accountId>, 1012, 1, <realmId>);  -- give T1 to one account
 --
@@ -42,16 +59,16 @@
 -- to retire the cpp side entirely or keep it as a thin admin wrapper for
 -- managing RBAC rows. See the corresponding PR description for context.
 --
--- Why role IDs 1010-1014:
+-- Why role IDs 1000 / 1010-1014:
 --   * PR #24641 uses 1-913 for core perms and 100000+ for module perms
---     (auto-allocated via `module_rbac_permissions`). 1010-1014 sit in
---     the unused gap. ID 1000 is taken by mod-ptr-changes' "PTR Player"
---     role; this module starts at 1010 to leave a 9-row buffer for any
---     future PTR-side roles.
+--     (auto-allocated via `module_rbac_permissions`). 1000 and
+--     1010-1014 sit in the unused gap. The 9-row gap between 1000 and
+--     1010 is a deliberate buffer for additional PTR-side roles if
+--     they're ever needed.
 --
--- 477 unique role-perm grants covering ~585 of the 607 commands the old
--- commands.sql tiered. The 22 omitted commands (no PR perm or chromiecraft
--- custom) are documented at the bottom of this file.
+-- 608 unique role-perm grant rows covering ~585 GM-tiered commands +
+-- 131 PTR-tiered commands (with overlap; PTR shares many perms with
+-- the GM tiers). Omitted commands are documented at the bottom.
 -- ============================================================================
 
 -- Idempotency: drop role rows and inbound links before re-creating.
@@ -59,20 +76,22 @@
 -- the role row is removed; we still clear inbound links explicitly because
 -- the FK is on linkedId.
 DELETE FROM `rbac_linked_permissions`
-    WHERE (`id` = 199 AND `linkedId` = 1010)
-       OR `linkedId` IN (1010, 1011, 1012, 1013, 1014);
-DELETE FROM `rbac_permissions` WHERE `id` IN (1010, 1011, 1012, 1013, 1014);
+    WHERE (`id` = 199 AND `linkedId` IN (1000, 1010))
+       OR `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
+DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
 
--- Define the five tier roles.
+-- Define the PTR role + the five GM tier roles.
 INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
+(1000, 'Role: PTR Player'),
 (1010, 'Role: GM Curated Player'),
 (1011, 'Role: GM Triager (T0)'),
 (1012, 'Role: GM Entertainer (T1)'),
 (1013, 'Role: GM Protector (T2)'),
 (1014, 'Role: GM Administrator');
 
--- Wire tier inheritance + auto-grant of Player tier to all sec-0 accounts.
+-- Wire tier inheritance + auto-grants into role 199 (Player Commands).
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(199,  1000), -- Player Commands -> PTR Player (auto-grant to sec 0; remove on non-PTR realms)
 (199,  1010), -- Player Commands -> GM Curated Player (auto-grant to sec 0)
 (1011, 1010), -- Triager      inherits Player
 (1012, 1011), -- Entertainer  inherits Triager
@@ -571,6 +590,152 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1014, 730), -- server set closed
 (1014, 732), -- server set loglevel
 (1014, 753); -- ticket reset
+
+-- ============================================================================
+-- PTR Player -> role 1000 (absorbed from mod-ptr-changes)
+--
+-- This role expresses the old cc_ptr_commands.sql intent: expose ~131
+-- ordinarily-GM commands to all sec-0 accounts on a PTR realm. It is
+-- auto-linked into role 199 above; remove the (199, 1000) row to
+-- disable PTR-tester access on a production realm without dropping
+-- the role definition.
+--
+-- The grant set OVERLAPS with the GM tier roles (e.g. cheat suite,
+-- bf commands, debug 300). RBAC permits the same perm to be linked
+-- from multiple roles; no collision occurs at insert time.
+-- ============================================================================
+INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1000, 267), -- cast
+(1000, 268), -- cast back
+(1000, 269), -- cast dist
+(1000, 270), -- cast self
+(1000, 272), -- cast dest
+(1000, 274), -- character customize
+(1000, 275), -- character changefaction
+(1000, 276), -- character changerace
+(1000, 287), -- levelup
+(1000, 292), -- cheat casttime
+(1000, 293), -- cheat cooldown
+(1000, 294), -- cheat explore
+(1000, 295), -- cheat god
+(1000, 296), -- cheat power
+(1000, 298), -- cheat taxi
+(1000, 299), -- cheat waterwalk
+(1000, 300), -- debug (and all subcommands)
+(1000, 343), -- deserter bg add
+(1000, 344), -- deserter bg remove (also gates `bg remove all`)
+(1000, 346), -- deserter instance add
+(1000, 347), -- deserter instance remove (also gates `instance remove all`)
+(1000, 367), -- event info
+(1000, 368), -- event activelist
+(1000, 369), -- event start
+(1000, 370), -- event stop
+(1000, 373), -- gm fly
+(1000, 377), -- go (and creature/gameobject/graveyard/grid/quest/taxinode/ticket/trigger/xyz/zonexy)
+(1000, 388), -- gobject activate
+(1000, 409), -- honor add
+(1000, 410), -- honor add kill
+(1000, 411), -- honor update
+(1000, 413), -- instance listbinds
+(1000, 414), -- instance unbind
+(1000, 415), -- instance stats
+(1000, 416), -- instance savedata
+(1000, 795), -- instance setbossstate
+(1000, 796), -- instance getbossstate
+(1000, 417), -- learn (also gates `learn all`)
+(1000, 419), -- learn all my (also gates `learn all my pettalents`)
+(1000, 420), -- learn all my class
+(1000, 422), -- learn all my spells
+(1000, 423), -- learn all my talents
+(1000, 424), -- learn all gm
+(1000, 425), -- learn all crafts
+(1000, 426), -- learn all default
+(1000, 427), -- learn all lang
+(1000, 428), -- learn all recipes
+(1000, 429), -- unlearn
+(1000, 437), -- list creature
+(1000, 438), -- list item
+(1000, 439), -- list object
+(1000, 440), -- list auras (also gates `list auras id`/`list auras name`)
+(1000, 442), -- lookup
+(1000, 443), -- lookup area (also gates `lookup gobject`)
+(1000, 444), -- lookup creature
+(1000, 445), -- lookup event
+(1000, 446), -- lookup faction
+(1000, 447), -- lookup item (also gates `lookup item set`)
+(1000, 449), -- lookup object
+(1000, 450), -- lookup quest
+(1000, 451), -- lookup player
+(1000, 452), -- lookup player ip
+(1000, 453), -- lookup player account
+(1000, 454), -- lookup player email
+(1000, 455), -- lookup skill
+(1000, 456), -- lookup spell
+(1000, 457), -- lookup spell id
+(1000, 458), -- lookup taxinode
+(1000, 459), -- lookup teleport (renamed `lookup tele` in #24641)
+(1000, 460), -- lookup title
+(1000, 461), -- lookup map
+(1000, 488), -- additem
+(1000, 489), -- additem set
+(1000, 777), -- mailbox
+(1000, 892), -- opendoor
+(1000, 897), -- gear repair
+(1000, 898), -- gear stats
+(1000, 490), -- appear
+(1000, 491), -- aura
+(1000, 494), -- combatstop
+(1000, 497), -- cooldown
+(1000, 498), -- damage
+(1000, 500), -- die
+(1000, 501), -- dismount
+(1000, 502), -- distance
+(1000, 505), -- gps
+(1000, 507), -- help
+(1000, 513), -- maxskill
+(1000, 520), -- recall
+(1000, 522), -- respawn
+(1000, 523), -- revive
+(1000, 525), -- save
+(1000, 526), -- setskill
+(1000, 529), -- unaura
+(1000, 542), -- morph (also gates `morph mount`/`morph reset`/`morph target`)
+(1000, 544), -- modify
+(1000, 545), -- modify arenapoints
+(1000, 546), -- modify bit
+(1000, 547), -- modify drunk
+(1000, 548), -- modify energy
+(1000, 549), -- modify faction
+(1000, 550), -- modify gender
+(1000, 551), -- modify honor
+(1000, 552), -- modify hp
+(1000, 553), -- modify mana
+(1000, 554), -- modify money
+(1000, 555), -- modify mount
+(1000, 556), -- modify phase
+(1000, 557), -- modify rage
+(1000, 558), -- modify reputation
+(1000, 559), -- modify runicpower
+(1000, 560), -- modify scale
+(1000, 561), -- modify speed
+(1000, 562), -- modify speed all
+(1000, 563), -- modify speed backwalk
+(1000, 564), -- modify speed fly
+(1000, 565), -- modify speed walk
+(1000, 566), -- modify speed swim
+(1000, 567), -- modify spell
+(1000, 568), -- modify standstate
+(1000, 569), -- modify talentpoints
+(1000, 593), -- npc info (also gates `npc guid`)
+(1000, 601), -- npc tame
+(1000, 602), -- quest (also gates `quest status`)
+(1000, 603), -- quest add
+(1000, 604), -- quest complete
+(1000, 605), -- quest remove
+(1000, 606), -- quest reward
+(1000, 716), -- reset talents
+(1000, 725), -- server info
+(1000, 737); -- teleport (renamed `tele` in #24641)
 
 -- ============================================================================
 -- COMMANDS NOT GRANTED -- design notes for reviewers
