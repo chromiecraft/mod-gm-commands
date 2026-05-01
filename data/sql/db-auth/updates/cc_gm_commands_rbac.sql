@@ -5,31 +5,49 @@
 --   1010  GM Curated Player         (sec 0, all realms)
 --   1011  GM Triager (T0)           (sec 1)
 --   1012  GM Entertainer (T1)       (sec 2)
---   1013  GM Protector (T2)         (no default; reachable via 1014)
+--   1013  GM Protector (T2)         (no direct default; sec-3 admins
+--                                    inherit it transitively via 1014)
 --   1014  GM Administrator          (sec 3)
 --
--- GM tier inheritance: 1014 -> 1013 -> 1012 -> 1011 -> 1010.
--- PTR Player is independent of the GM chain.
+-- GM tier inheritance: 1014 -> 1013 -> 1012 -> 1011 -> 1010 -> 195.
+-- PTR Player also links 1000 -> 195 to pick up base player perks.
 --
--- WARNING: this migration DELETES the stock #24641 default rows
--- (3,192,-1) (2,193,-1) (1,194,-1) (0,195,-1). Doing so strips the
--- gameplay perks those roles carried (Join BG/Arenas/Dungeon Finder,
--- two-side char creation, Instant logout, Skip Queue, the GM/Admin
--- "skip check" suite, etc.). This is intentional: only the curated
--- command set defined here is granted. Re-add specific perks via
--- rbac_account_permissions or by restoring the relevant stock row.
+-- This migration DELETES the stock #24641 default rows
+--   (3,192,-1) (2,193,-1) (1,194,-1) (0,195,-1)
+-- and replaces them with module-role defaults. Effects per sec level:
+--   sec 0  KEEPS base player perks (Join BG/Arenas/Dungeon Finder,
+--          two-side char creation, etc.) because 1010 and 1000 link
+--          back to role 195.
+--   sec 1+ LOSE the gameplay perks attached to roles 192-194 (Instant
+--          logout, Skip Queue, Skip idle/spam/overspeed checks, Log
+--          GM trades, the full GM/Admin "skip check" suite). This is
+--          intentional -- only the curated command set is granted.
+--          Re-add specific perks via rbac_account_permissions or by
+--          restoring the relevant stock row.
 --
 -- The cpp gating engine in src/GmCommands.cpp is unchanged; under
 -- RBAC it becomes redundant with rbac_account_permissions and should
 -- be revisited separately. Role IDs 1000 / 1010-1014 sit in the gap
 -- between core perms (1-913) and module perms (100000+).
+--
+-- Two #24641 perm-consolidation effects worth flagging: granting
+-- RBAC_PERM_COMMAND_DEBUG (300) at Player tier exposes the entire
+-- `.debug *` tree (~80 subcommands incl. .debug send opcode,
+-- .debug Mod32Value, .debug setitemvalue), not just the two subs the
+-- old commands.sql lowered; and granting RBAC_PERM_COMMAND_NPC_INFO
+-- (593) at Player tier also gates `.npc guid`, which the old file
+-- kept at T0 Triager. Both are accepted trade-offs of #24641's
+-- coarser perm granularity. See inline notes on (1010, 300) and
+-- (1010, 593).
 -- ============================================================================
 
 -- Idempotent: clear our roles + the stock sec-level defaults, then re-insert.
 DELETE FROM `rbac_default_permissions`
-    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014)
-       OR (`secId`, `permissionId`, `realmId`) IN
-            ((3,192,-1), (2,193,-1), (1,194,-1), (0,195,-1));
+    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014);
+DELETE FROM `rbac_default_permissions` WHERE `secId` = 3 AND `permissionId` = 192 AND `realmId` = -1;
+DELETE FROM `rbac_default_permissions` WHERE `secId` = 2 AND `permissionId` = 193 AND `realmId` = -1;
+DELETE FROM `rbac_default_permissions` WHERE `secId` = 1 AND `permissionId` = 194 AND `realmId` = -1;
+DELETE FROM `rbac_default_permissions` WHERE `secId` = 0 AND `permissionId` = 195 AND `realmId` = -1;
 DELETE FROM `rbac_linked_permissions`
     WHERE `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
@@ -49,11 +67,11 @@ INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 -- otherwise have lost. Both module player-tier roles link to 195 so each
 -- works standalone if the other is removed.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(1000,  195),
-(1010,  195),
-(1011, 1010),
-(1012, 1011),
-(1013, 1012),
+(1000, 195);
+(1010, 195);
+(1011, 1010);
+(1012, 1011);
+(1013, 1012);
 (1014, 1013);
 
 -- Sec-level defaults (realmId -1 = all, 2 = PTR).
@@ -67,30 +85,18 @@ INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALU
 
 -- Player -> role 1010
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(1010, 217), -- account, account 2fa, account 2fa remove, account 2fa setup
-(1010, 222), -- account lock country
-(1010, 223), -- account lock ip
-(1010, 225), -- account password
-(1010, 300), -- debug, debug hostile
+(1010, 300), -- debug (BROAD: all `.debug *` subcommands, ~80 of them; old
+             -- commands.sql only lowered `debug` and `debug hostile` to
+             -- player tier, but #24641 collapses them all onto perm 300)
 (1010, 394), -- gobject near
 (1010, 398), -- gobject target
-(1010, 496), -- commands
-(1010, 505), -- gps
-(1010, 507), -- help
-(1010, 525), -- save
-(1010, 593), -- npc info
+(1010, 593), -- npc info (also gates `.npc guid`, which old commands.sql
+             -- kept at T0; #24641 puts both on the same perm)
 (1010, 594), -- npc near
 (1010, 602), -- quest, quest status
 (1010, 718), -- server
-(1010, 725), -- server info
 (1010, 736), -- server motd
-(1010, 874), -- settings announcer
-(1010, 899), -- spect
-(1010, 900), -- spect version
-(1010, 901), -- spect reset
-(1010, 902), -- spect spectate
-(1010, 903), -- spect watch
-(1010, 904); -- spect leave
+(1010, 874); -- settings announcer
 
 -- GM T0 (Triager) -> role 1011
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
@@ -108,7 +114,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1011, 296), -- cheat power
 (1011, 298), -- cheat taxi
 (1011, 299), -- cheat waterwalk
-(1011, 300), -- cache info
 (1011, 368), -- event activelist
 (1011, 371), -- gm, gm spectator
 (1011, 372), -- gm chat
@@ -200,13 +205,11 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1011, 566), -- modify speed swim
 (1011, 568), -- modify standstate
 (1011, 569), -- modify talentpoints
-(1011, 593), -- npc guid
 (1011, 596), -- npc playemote
 (1011, 597), -- npc say
 (1011, 598), -- npc textemote
 (1011, 599), -- npc whisper
 (1011, 600), -- npc yell
-(1011, 602), -- quest
 (1011, 603), -- quest add
 (1011, 604), -- quest complete
 (1011, 605), -- quest remove
@@ -255,14 +258,12 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 275), -- character changefaction
 (1012, 276), -- character changerace
 (1012, 287), -- levelup
-(1012, 300), -- cache delete, cache refresh, debug play, debug play cinematic, debug play movie, debug play sound
 (1012, 343), -- deserter bg add
 (1012, 344), -- deserter bg remove
 (1012, 346), -- deserter instance add
 (1012, 347), -- deserter instance remove
 (1012, 369), -- event start
 (1012, 370), -- event stop
-(1012, 377), -- go ticket
 (1012, 389), -- gobject add
 (1012, 390), -- gobject add temp
 (1012, 391), -- gobject delete
@@ -302,7 +303,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 531), -- unfreeze
 (1012, 532), -- unmute
 (1012, 534), -- unstuck
-(1012, 542), -- morph target
 (1012, 546), -- modify bit
 (1012, 550), -- modify gender
 (1012, 571), -- npc add
@@ -372,9 +372,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 283), -- character level
 (1013, 289), -- pdump load
 (1013, 290), -- pdump write
-(1013, 300), -- debug Mod32Value, debug anim, debug areatriggers, debug arena, debug bg, debug cooldown, debug dummy, debug entervehicle, debug getitemstate, debug getitemvalue, debug getvalue, debug itemexpire, debug lfg, debug lootrecipient, debug los, debug moveflags, debug objectcount, debug play music, debug play visual, debug send, debug send buyerror, debug send channelnotify, debug send chatmessage, debug send equiperror, debug send largepacket, debug send opcode, debug send qinvalidmsg, debug send qpartymsg, debug send sellerror, debug send setphaseshift, debug send spellfail, debug setaurastate, debug setbit, debug setitemvalue, debug setvalue, debug setvid, debug spawnvehicle, debug threat, debug update, debug uws
-(1013, 344), -- deserter bg remove all
-(1013, 347), -- deserter instance remove all
 (1013, 351), -- disable add battleground
 (1013, 352), -- disable add map
 (1013, 354), -- disable add outdoorpvp
@@ -611,23 +608,14 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 438), -- list item
 (1000, 439), -- list object
 (1000, 440), -- list auras (also gates `list auras id`/`list auras name`)
-(1000, 442), -- lookup
-(1000, 443), -- lookup area (also gates `lookup gobject`)
-(1000, 444), -- lookup creature
 (1000, 445), -- lookup event
-(1000, 446), -- lookup faction
-(1000, 447), -- lookup item (also gates `lookup item set`)
 (1000, 449), -- lookup object
-(1000, 450), -- lookup quest
 (1000, 451), -- lookup player
 (1000, 452), -- lookup player ip
 (1000, 453), -- lookup player account
 (1000, 454), -- lookup player email
-(1000, 455), -- lookup skill
-(1000, 456), -- lookup spell
 (1000, 457), -- lookup spell id
 (1000, 458), -- lookup taxinode
-(1000, 459), -- lookup teleport (renamed `lookup tele` in #24641)
 (1000, 460), -- lookup title
 (1000, 461), -- lookup map
 (1000, 488), -- additem
@@ -635,22 +623,17 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 777), -- mailbox
 (1000, 892), -- opendoor
 (1000, 897), -- gear repair
-(1000, 898), -- gear stats
 (1000, 490), -- appear
 (1000, 491), -- aura
 (1000, 494), -- combatstop
 (1000, 497), -- cooldown
 (1000, 498), -- damage
 (1000, 500), -- die
-(1000, 501), -- dismount
 (1000, 502), -- distance
-(1000, 505), -- gps
-(1000, 507), -- help
 (1000, 513), -- maxskill
 (1000, 520), -- recall
 (1000, 522), -- respawn
 (1000, 523), -- revive
-(1000, 525), -- save
 (1000, 526), -- setskill
 (1000, 529), -- unaura
 (1000, 542), -- morph (also gates `morph mount`/`morph reset`/`morph target`)
@@ -688,7 +671,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 605), -- quest remove
 (1000, 606), -- quest reward
 (1000, 716), -- reset talents
-(1000, 725), -- server info
 (1000, 737); -- teleport (renamed `tele` in #24641)
 
 -- ============================================================================
