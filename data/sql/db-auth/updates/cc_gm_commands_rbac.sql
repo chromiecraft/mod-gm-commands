@@ -30,15 +30,13 @@
 -- be revisited separately. Role IDs 1000 / 1010-1014 sit in the gap
 -- between core perms (1-913) and module perms (100000+).
 --
--- Two #24641 perm-consolidation effects worth flagging: granting
--- RBAC_PERM_COMMAND_DEBUG (300) at Player tier exposes the entire
--- `.debug *` tree (~80 subcommands incl. .debug send opcode,
--- .debug Mod32Value, .debug setitemvalue), not just the two subs the
--- old commands.sql lowered; and granting RBAC_PERM_COMMAND_NPC_INFO
--- (593) at Player tier also gates `.npc guid`, which the old file
--- kept at T0 Triager. Both are accepted trade-offs of #24641's
--- coarser perm granularity. See inline notes on (1010, 300) and
--- (1010, 593).
+-- One #24641 perm-consolidation effect worth flagging: granting
+-- RBAC_PERM_COMMAND_NPC_INFO (593) at Player tier also gates
+-- `.npc guid`, which the old file kept at T0 Triager. Accepted
+-- trade-off of #24641's coarser perm granularity. See inline note
+-- on (1010, 593). The analogous debug-tree leak that would have
+-- come with perm 300 is avoided by granting it at Triager (1011)
+-- rather than Player (1010).
 -- ============================================================================
 
 -- Idempotent: clear our roles + the stock sec-level defaults, then re-insert.
@@ -85,9 +83,6 @@ INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALU
 
 -- Player -> role 1010
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(1010, 300), -- debug (BROAD: all `.debug *` subcommands, ~80 of them; old
-             -- commands.sql only lowered `debug` and `debug hostile` to
-             -- player tier, but #24641 collapses them all onto perm 300)
 (1010, 394), -- gobject near
 (1010, 398), -- gobject target
 (1010, 593), -- npc info (also gates `.npc guid`, which old commands.sql
@@ -114,6 +109,9 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1011, 296), -- cheat power
 (1011, 298), -- cheat taxi
 (1011, 299), -- cheat waterwalk
+(1011, 300), -- debug (BROAD: perm 300 gates the entire `.debug *` tree
+             -- under #24641, ~80 subcommands. Granted at Triager so all
+             -- GM tiers inherit it; players no longer get debug access.)
 (1011, 368), -- event activelist
 (1011, 371), -- gm, gm spectator
 (1011, 372), -- gm chat
