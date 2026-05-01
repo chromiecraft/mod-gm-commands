@@ -67,11 +67,11 @@ INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 -- otherwise have lost. Both module player-tier roles link to 195 so each
 -- works standalone if the other is removed.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(1000, 195);
-(1010, 195);
-(1011, 1010);
-(1012, 1011);
-(1013, 1012);
+(1000, 195),
+(1010, 195),
+(1011, 1010),
+(1012, 1011),
+(1013, 1012),
 (1014, 1013);
 
 -- Sec-level defaults (realmId -1 = all, 2 = PTR).
