@@ -34,27 +34,37 @@
 --
 -- Auto-grants are expressed via `rbac_default_permissions`, which has
 -- a `realmId` column (default -1 = all realms) and is the canonical
--- mechanism for "give every account at sec level N this permission":
---   * (secId=0, permissionId=1010, realmId=-1)
---       GM Curated Player granted to all sec-0 accounts on every realm
---       this module is installed on. Preserves the old commands.sql
---       "always allow SEC_PLAYER (0)" semantics.
---   * (secId=0, permissionId=1000, realmId=2)
---       PTR Player granted to sec-0 accounts ONLY on realm 2 (the PTR
---       realm). On any other realm the role exists but is dormant --
---       no auto-grant, no exposure.
+-- mechanism for "give every account at sec level N this permission".
+-- These rows are ADDITIVE to the stock #24641 defaults (which assign
+-- roles 192-195 to sec levels 0-3); they do not replace them.
 --
--- Realm-scoping is handled at the row level by RBAC; this module no
--- longer auto-links roles into role 199 (Player Commands) for the
--- defaults, because that linkage is realm-independent and would force
--- PTR exposure onto every realm. Per-account assignments still go via
--- `rbac_account_permissions` if needed (also realm-scoped).
+--   secId 0 (Player)
+--     * (0, 1010, -1)  GM Curated Player on every realm
+--     * (0, 1000,  2)  PTR Player on realm 2 (PTR) only
+--   secId 1 (Moderator)
+--     * (1, 1011, -1)  GM Triager (T0); inherits 1010
+--   secId 2 (Gamemaster)
+--     * (2, 1012, -1)  GM Entertainer (T1); inherits 1011 -> 1010
+--   secId 3 (Administrator)
+--     * (3, 1014, -1)  GM Administrator; inherits 1013 -> 1012 -> 1011
+--                      -> 1010
 --
--- The Triager / Entertainer / Protector / Administrator roles
--- (1011-1014) are defined but NOT auto-linked to any sec-level role.
--- They are intended to be granted to specific accounts via
--- `rbac_account_permissions`, replacing the cpp module's per-account
--- whitelist feature with a native RBAC mechanism. Example:
+-- The PTR Player role is granted only at sec 0 on realm 2; higher sec
+-- levels on realm 2 already have most/all of those commands via the
+-- GM tier hierarchy and do not need an extra grant. To shadow PTR on
+-- another realm, change the realmId on the (0, 1000, ?) row.
+--
+-- The GM Protector tier (1013) has no direct default-permissions row
+-- because it is reached via inheritance from 1014 at sec 3. If your
+-- staffing model has a sec level between GM and Admin (e.g. a custom
+-- SEC_HEAD_GM) you can add (<secId>, 1013, -1) here.
+--
+-- The Triager / Entertainer / Administrator roles (1011, 1012, 1014)
+-- are defaulted to sec levels 1, 2, 3 respectively (see the
+-- rbac_default_permissions block below), so any account whose stock
+-- security level matches gets the corresponding tier automatically.
+-- For finer-grained per-account assignments (the original cpp module's
+-- whitelist feature), use `rbac_account_permissions`:
 --   INSERT INTO rbac_account_permissions (accountId, permissionId, granted, realmId)
 --   VALUES (<accountId>, 1012, 1, <realmId>);  -- give T1 to one account
 --
@@ -105,11 +115,15 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1014, 1013); -- Administrator inherits Protector
 
 -- Default permissions per sec level + realm.
---   realmId = -1 means "all realms"; any other value scopes to that
---   single realm. Realm 2 is PTR.
+--   realmId = -1 means "all realms"; any other value scopes to one
+--   realm. Realm 2 is PTR. These rows are additive to the stock
+--   #24641 defaults (which assign roles 192-195 to sec levels 0-3).
 INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALUES
-(0, 1010, -1), -- All sec-0 accounts on every realm get GM Curated Player
-(0, 1000,  2); -- Sec-0 accounts on realm 2 (PTR) additionally get PTR Player
+(0, 1010, -1), -- Player        gets GM Curated Player on every realm
+(0, 1000,  2), -- Player        gets PTR Player on realm 2 (PTR) only
+(1, 1011, -1), -- Moderator     gets GM Triager (T0)        [inherits 1010]
+(2, 1012, -1), -- Gamemaster    gets GM Entertainer (T1)    [inherits 1011]
+(3, 1014, -1); -- Administrator gets GM Administrator       [inherits 1013->1012->1011->1010]
 
 
 -- Player -> role 1010
