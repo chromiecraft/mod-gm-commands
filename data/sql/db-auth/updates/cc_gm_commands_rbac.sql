@@ -32,18 +32,23 @@
 --     1013 -> 1012
 --     1014 -> 1013
 --
--- Auto-grants (rows linking into role 199 "Player Commands", which
--- secId 0 inherits):
---   * 1000 (PTR Player) -- exposes PTR-tester commands to all sec-0
---     accounts. Disable on non-PTR realms by deleting the (199, 1000)
---     row alone.
---   * 1010 (GM Curated Player) -- preserves the old commands.sql
---     "always allow SEC_PLAYER (0)" semantics.
+-- Auto-grants are expressed via `rbac_default_permissions`, which has
+-- a `realmId` column (default -1 = all realms) and is the canonical
+-- mechanism for "give every account at sec level N this permission":
+--   * (secId=0, permissionId=1010, realmId=-1)
+--       GM Curated Player granted to all sec-0 accounts on every realm
+--       this module is installed on. Preserves the old commands.sql
+--       "always allow SEC_PLAYER (0)" semantics.
+--   * (secId=0, permissionId=1000, realmId=2)
+--       PTR Player granted to sec-0 accounts ONLY on realm 2 (the PTR
+--       realm). On any other realm the role exists but is dormant --
+--       no auto-grant, no exposure.
 --
--- Both auto-grants coexist without collision: they are separate rows
--- in `rbac_linked_permissions` (different linkedId values). The two
--- roles' command-perm sets may overlap; RBAC tolerates the same perm
--- being linked from multiple roles.
+-- Realm-scoping is handled at the row level by RBAC; this module no
+-- longer auto-links roles into role 199 (Player Commands) for the
+-- defaults, because that linkage is realm-independent and would force
+-- PTR exposure onto every realm. Per-account assignments still go via
+-- `rbac_account_permissions` if needed (also realm-scoped).
 --
 -- The Triager / Entertainer / Protector / Administrator roles
 -- (1011-1014) are defined but NOT auto-linked to any sec-level role.
@@ -71,13 +76,14 @@
 -- the GM tiers). Omitted commands are documented at the bottom.
 -- ============================================================================
 
--- Idempotency: drop role rows and inbound links before re-creating.
--- ON DELETE CASCADE on rbac_linked_permissions clears outbound links when
--- the role row is removed; we still clear inbound links explicitly because
--- the FK is on linkedId.
+-- Idempotency: drop role rows, inbound links, and default-permission
+-- rows before re-creating. ON DELETE CASCADE on rbac_linked_permissions
+-- clears outbound links when the role row is removed; we still clear
+-- inbound links explicitly because the FK is on linkedId.
+DELETE FROM `rbac_default_permissions`
+    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_linked_permissions`
-    WHERE (`id` = 199 AND `linkedId` IN (1000, 1010))
-       OR `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
+    WHERE `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
 
 -- Define the PTR role + the five GM tier roles.
@@ -89,14 +95,21 @@ INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1013, 'Role: GM Protector (T2)'),
 (1014, 'Role: GM Administrator');
 
--- Wire tier inheritance + auto-grants into role 199 (Player Commands).
+-- Wire GM tier inheritance (1014 -> 1013 -> 1012 -> 1011 -> 1010).
+-- The PTR Player role is intentionally not linked into the GM tier
+-- chain; it is realm-scoped and conceptually independent.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
-(199,  1000), -- Player Commands -> PTR Player (auto-grant to sec 0; remove on non-PTR realms)
-(199,  1010), -- Player Commands -> GM Curated Player (auto-grant to sec 0)
-(1011, 1010), -- Triager      inherits Player
+(1011, 1010), -- Triager      inherits GM Curated Player
 (1012, 1011), -- Entertainer  inherits Triager
 (1013, 1012), -- Protector    inherits Entertainer
 (1014, 1013); -- Administrator inherits Protector
+
+-- Default permissions per sec level + realm.
+--   realmId = -1 means "all realms"; any other value scopes to that
+--   single realm. Realm 2 is PTR.
+INSERT INTO `rbac_default_permissions` (`secId`, `permissionId`, `realmId`) VALUES
+(0, 1010, -1), -- All sec-0 accounts on every realm get GM Curated Player
+(0, 1000,  2); -- Sec-0 accounts on realm 2 (PTR) additionally get PTR Player
 
 
 -- Player -> role 1010
@@ -595,10 +608,12 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 -- PTR Player -> role 1000 (absorbed from mod-ptr-changes)
 --
 -- This role expresses the old cc_ptr_commands.sql intent: expose ~131
--- ordinarily-GM commands to all sec-0 accounts on a PTR realm. It is
--- auto-linked into role 199 above; remove the (199, 1000) row to
--- disable PTR-tester access on a production realm without dropping
--- the role definition.
+-- ordinarily-GM commands to sec-0 accounts on the PTR realm only.
+-- The auto-grant is realm-scoped via the
+--   (secId=0, permissionId=1000, realmId=2)
+-- row in `rbac_default_permissions` above. Other realms see the role
+-- defined but inactive. To change the PTR realm ID, update that one
+-- row's realmId column rather than re-running this whole migration.
 --
 -- The grant set OVERLAPS with the GM tier roles (e.g. cheat suite,
 -- bf commands, debug 300). RBAC permits the same perm to be linked
