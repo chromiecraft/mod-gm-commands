@@ -238,6 +238,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 
 -- GM T1 (Entertainer/Moderator) -> role 1012
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1012,  20), -- skip disable map check (bypass world.disables map gate)
 (1012, 231), -- achievement add
 (1012, 232), -- achievement checkall
 (1012, 238), -- arena rename
