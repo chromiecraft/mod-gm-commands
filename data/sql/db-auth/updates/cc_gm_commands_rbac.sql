@@ -561,7 +561,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1014, 723), -- server idleshutdown
 (1014, 730), -- server set closed
 (1014, 732), -- server set loglevel
-(1014, 753); -- ticket reset
+(1014, 753), -- ticket reset
 (1014, 1013); -- all level 2 permissions
 
 -- PTR Player (1000) -- absorbed from mod-ptr-changes; overlaps with GM tiers.
