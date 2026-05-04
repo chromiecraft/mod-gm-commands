@@ -358,8 +358,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 887), -- item restore list
 (1012, 888), -- item refund
 (1012, 889), -- commentator
-(1012, 891), -- string
-(1012, 1011); -- All level 0 permissions
+(1012, 891); -- string
 
 -- GM T2 (Protector) -> role 1013
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
@@ -537,8 +536,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 873), -- reload creature_movement_override
 (1013, 890), -- skirmish
 (1013, 895), -- aura stack
-(1013, 896), -- respawn all
-(1013, 1012); -- all level 1 permissions
+(1013, 896); -- respawn all
 
 -- Administrator -> role 1014
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
@@ -561,8 +559,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1014, 723), -- server idleshutdown
 (1014, 730), -- server set closed
 (1014, 732), -- server set loglevel
-(1014, 753), -- ticket reset
-(1014, 1013); -- all level 2 permissions
+(1014, 753); -- ticket reset
 
 -- PTR Player (1000) -- absorbed from mod-ptr-changes; overlaps with GM tiers.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
