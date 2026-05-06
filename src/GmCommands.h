@@ -16,6 +16,7 @@ public:
 
     void Reload();
 
+    [[nodiscard]] bool IsEnabled() const;
     [[nodiscard]] bool IsAccountAllowed(uint32 accountId) const;
     [[nodiscard]] AccountTypes GetAccountLevel(uint32 accountId) const;
     [[nodiscard]] bool IsCommandAllowed(uint32 accountId, std::string_view command) const;
@@ -54,6 +55,7 @@ private:
 
     AccountTypes _defaultLevel = SEC_PLAYER;
     CommandSet _defaultCommands;
+    bool _enabled = true;
     std::unordered_set<uint32> _accounts;
     std::unordered_map<std::string, Preset> _presets;
     std::unordered_map<uint32, std::string> _accountToPreset;
