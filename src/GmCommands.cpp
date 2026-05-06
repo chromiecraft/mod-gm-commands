@@ -23,6 +23,7 @@ namespace
     constexpr char const* ACCOUNT_IDS_KEY = "GmCommandsModule.AccountIds";
     constexpr char const* DEFAULT_COMMANDS_KEY = "GmCommandsModule.DefaultCommands";
     constexpr char const* DEFAULT_LEVEL_KEY = "GmCommandsModule.DefaultLevel";
+    constexpr char const* ENABLE_KEY = "GmCommandsModule.Enable";
     constexpr char const* PRESETS_KEY = "GmCommandsModule.Presets";
     constexpr char const* MODULE_CONFIG_FILE = "mod_gm_commands.conf";
     constexpr char const* MODULE_CONFIG_DIST_FILE = "mod_gm_commands.conf.dist";
@@ -129,6 +130,13 @@ void GMCommands::Reload()
     _defaultCommands.clear();
     _commandPermissions.clear();
     _lastCommandByHandler.clear();
+
+    _enabled = sConfigMgr->GetOption<bool>(ENABLE_KEY, true);
+    if (!_enabled)
+    {
+        LOG_INFO("modules.gmcommands", "GmCommands: Module is disabled.");
+        return;
+    }
 
     auto const buildCommandListString = [](CommandSet const& commands)
     {
@@ -357,6 +365,11 @@ void GMCommands::BuildEffectiveConfigs()
     }
 }
 
+bool GMCommands::IsEnabled() const
+{
+    return _enabled;
+}
+
 bool GMCommands::IsAccountAllowed(uint32 accountId) const
 {
     return _accounts.find(accountId) != _accounts.end();
@@ -509,6 +522,9 @@ public:
         sGMCommands->RememberCommandMetadata(name, permissions.RequiredLevel);
         sGMCommands->RememberHandlerCommand(&who, name);
 
+        if (!sGMCommands->IsEnabled())
+            return true;
+
         if (who.IsConsole())
             return true;
 
@@ -535,6 +551,9 @@ public:
 
     bool OnTryExecuteCommand(ChatHandler& handler, std::string_view /*cmdStr*/) override
     {
+        if (!sGMCommands->IsEnabled())
+            return true;
+
         if (handler.IsConsole())
             return true;
 
@@ -581,6 +600,9 @@ public:
 
     void OnPlayerLogin(Player* player) override
     {
+        if (!sGMCommands->IsEnabled())
+            return;
+
         if (!player)
             return;
 
@@ -601,6 +623,9 @@ public:
 
     void OnPlayerSetServerSideVisibility(Player* player, ServerSideVisibilityType& type, AccountTypes& sec) override
     {
+        if (!sGMCommands->IsEnabled())
+            return;
+
         if (type != SERVERSIDE_VISIBILITY_GM)
             return;
 
