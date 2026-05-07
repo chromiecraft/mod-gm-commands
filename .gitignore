@@ -24,6 +24,7 @@ CMakeLists.txt.user
 #
 # IDE & other softwares
 #
+.claude/
 /.settings/
 /.externalToolBuilders/*
 # exclude in all levels
