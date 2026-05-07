@@ -103,6 +103,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 
 -- GM T0 (Triager) -> role 1011
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1011,   1), -- instant logout
 (1011, 218), -- account addon
 (1011, 236), -- arena info
 (1011, 237), -- arena lookup
@@ -563,6 +564,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 
 -- PTR Player (1000) -- absorbed from mod-ptr-changes; overlaps with GM tiers.
 INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1000,   1), -- instant logout
 (1000, 267), -- cast
 (1000, 268), -- cast back
 (1000, 269), -- cast dist
