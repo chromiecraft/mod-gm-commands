@@ -2,6 +2,9 @@
 -- Also absorbs the PTR Player role from mod-ptr-changes.
 --
 --   1000  PTR Player                (sec 0, realm 2 only)
+--   1001  PTR Tester                (no default; granted per-account via
+--                                    rbac_account_permissions to a curated
+--                                    tester group, additive on top of 1000)
 --   1010  GM Curated Player         (sec 0, all realms)
 --   1011  GM Triager (T0)           (sec 1)
 --   1012  GM Entertainer (T1)       (sec 2)
@@ -41,17 +44,18 @@
 
 -- Idempotent: clear our roles + the stock sec-level defaults, then re-insert.
 DELETE FROM `rbac_default_permissions`
-    WHERE `permissionId` IN (1000, 1010, 1011, 1012, 1013, 1014);
+    WHERE `permissionId` IN (1000, 1001, 1010, 1011, 1012, 1013, 1014);
 DELETE FROM `rbac_default_permissions` WHERE `secId` = 3 AND `permissionId` = 192 AND `realmId` = -1;
 DELETE FROM `rbac_default_permissions` WHERE `secId` = 2 AND `permissionId` = 193 AND `realmId` = -1;
 DELETE FROM `rbac_default_permissions` WHERE `secId` = 1 AND `permissionId` = 194 AND `realmId` = -1;
 DELETE FROM `rbac_default_permissions` WHERE `secId` = 0 AND `permissionId` = 195 AND `realmId` = -1;
 DELETE FROM `rbac_linked_permissions`
-    WHERE `linkedId` IN (1000, 1010, 1011, 1012, 1013, 1014);
-DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1010, 1011, 1012, 1013, 1014);
+    WHERE `linkedId` IN (1000, 1001, 1010, 1011, 1012, 1013, 1014);
+DELETE FROM `rbac_permissions` WHERE `id` IN (1000, 1001, 1010, 1011, 1012, 1013, 1014);
 
 INSERT INTO `rbac_permissions` (`id`, `name`) VALUES
 (1000, 'Role: PTR Player'),
+(1001, 'Role: PTR Tester'),
 (1010, 'Role: GM Curated Player'),
 (1011, 'Role: GM Triager (T0)'),
 (1012, 'Role: GM Entertainer (T1)'),
@@ -681,6 +685,16 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1000, 606), -- quest reward
 (1000, 716), -- reset talents
 (1000, 737); -- teleport (renamed `tele` in #24641)
+
+-- PTR Tester (1001) -- granted per-account on the PTR realm with:
+--   INSERT INTO `rbac_account_permissions` (`accountId`, `permissionId`, `granted`, `realmId`)
+--       VALUES (<acctId>, 1001, 1, 2);
+INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
+(1001, 258), -- bf start
+(1001, 259), -- bf stop
+(1001, 260), -- bf switch
+(1001, 261), -- bf timer
+(1001, 262); -- bf enable
 
 -- ============================================================================
 -- Not granted (no perm in #24641, or visible-by-inference parents):
