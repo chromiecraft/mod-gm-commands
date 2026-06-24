@@ -172,6 +172,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1011, 467), -- gmnameannounce
 (1011, 468), -- gmnotify
 (1011,  36), -- can filter whispers (RBAC_PERM_CAN_FILTER_WHISPERS)
+(1011,  39), -- restore saved GM setting states
 (1011, 479), -- pet
 (1011, 480), -- pet create
 (1011, 481), -- pet learn
