@@ -278,6 +278,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 369), -- event start
 (1012, 370), -- event stop
 (1012, 390), -- gobject add temp
+(1012, 396), -- gobject set phase
 (1012, 397), -- gobject set state
 (1012, 401), -- guild
 (1012, 402), -- guild create
@@ -318,6 +319,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 579), -- npc follow stop
 (1012, 581), -- npc set allowmove
 (1012, 582), -- npc set entry
+(1012, 589), -- npc set phase
 (1012, 592), -- npc set data
 (1012, 601), -- npc tame
 (1012, 740), -- teleport name
@@ -380,7 +382,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 389), -- gobject add
 (1013, 391), -- gobject delete
 (1013, 393), -- gobject move
-(1013, 396), -- gobject set phase
 (1013, 399), -- gobject turn
 (1013, 409), -- honor add
 (1013, 410), -- honor add kill
@@ -423,7 +424,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 586), -- npc set link
 (1013, 587), -- npc set model
 (1013, 588), -- npc set movetype
-(1013, 589), -- npc set phase
 (1013, 590), -- npc set wanderdistance
 (1013, 591), -- npc set spawntime
 (1013, 595), -- npc move
