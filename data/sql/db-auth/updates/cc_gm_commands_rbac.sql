@@ -339,7 +339,6 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 589), -- npc set phase
 (1012, 591), -- npc set spawntime
 (1012, 592), -- npc set data
-(1012, 595), -- npc move
 (1012, 601), -- npc tame
 (1012, 740), -- teleport name
 (1012, 741), -- teleport group
@@ -427,6 +426,7 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 549), -- modify faction
 (1013, 551), -- modify honor
 (1013, 554), -- modify money
+(1013, 595), -- npc move
 (1013, 607), -- reload, reload command, reload dungeon_access_requirements, reload dungeon_access_template, reload game_graveyard, reload gameobject_loot_template, reload mail_server_template, reload module_string, reload motd, reload npc_trainer, reload player_loot_template, reload spell_proc_event, reload spell_scripts
 (1013, 609), -- reload achievement_criteria_data
 (1013, 610), -- reload achievement_reward
