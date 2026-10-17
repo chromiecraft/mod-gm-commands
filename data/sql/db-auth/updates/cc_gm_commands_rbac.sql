@@ -277,13 +277,8 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 347), -- deserter instance remove
 (1012, 369), -- event start
 (1012, 370), -- event stop
-(1012, 389), -- gobject add
 (1012, 390), -- gobject add temp
-(1012, 391), -- gobject delete
-(1012, 393), -- gobject move
-(1012, 396), -- gobject set phase
 (1012, 397), -- gobject set state
-(1012, 399), -- gobject turn
 (1012, 401), -- guild
 (1012, 402), -- guild create
 (1012, 403), -- guild delete
@@ -318,26 +313,11 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1012, 534), -- unstuck
 (1012, 546), -- modify bit
 (1012, 550), -- modify gender
-(1012, 571), -- npc add
-(1012, 572), -- npc add formation
-(1012, 573), -- npc add item
-(1012, 574), -- npc add move
 (1012, 575), -- npc add temp
-(1012, 576), -- npc delete
-(1012, 577), -- npc delete item
 (1012, 578), -- npc follow
 (1012, 579), -- npc follow stop
-(1012, 580), -- npc set, npc set wanderdistance
 (1012, 581), -- npc set allowmove
 (1012, 582), -- npc set entry
-(1012, 583), -- npc set faction original, npc set faction permanent, npc set faction temp
-(1012, 584), -- npc set flag
-(1012, 585), -- npc set level
-(1012, 586), -- npc set link
-(1012, 587), -- npc set model
-(1012, 588), -- npc set movetype
-(1012, 589), -- npc set phase
-(1012, 591), -- npc set spawntime
 (1012, 592), -- npc set data
 (1012, 601), -- npc tame
 (1012, 740), -- teleport name
@@ -397,6 +377,11 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 365), -- disable remove spell
 (1013, 366), -- disable remove vmap
 (1013, 375), -- gm list
+(1013, 389), -- gobject add
+(1013, 391), -- gobject delete
+(1013, 393), -- gobject move
+(1013, 396), -- gobject set phase
+(1013, 399), -- gobject turn
 (1013, 409), -- honor add
 (1013, 410), -- honor add kill
 (1013, 411), -- honor update
@@ -426,6 +411,21 @@ INSERT INTO `rbac_linked_permissions` (`id`, `linkedId`) VALUES
 (1013, 549), -- modify faction
 (1013, 551), -- modify honor
 (1013, 554), -- modify money
+(1013, 571), -- npc add
+(1013, 572), -- npc add formation
+(1013, 573), -- npc add item
+(1013, 574), -- npc add move
+(1013, 576), -- npc delete
+(1013, 577), -- npc delete item
+(1013, 583), -- npc set faction original, npc set faction permanent, npc set faction temp
+(1013, 584), -- npc set flag
+(1013, 585), -- npc set level
+(1013, 586), -- npc set link
+(1013, 587), -- npc set model
+(1013, 588), -- npc set movetype
+(1013, 589), -- npc set phase
+(1013, 590), -- npc set wanderdistance
+(1013, 591), -- npc set spawntime
 (1013, 595), -- npc move
 (1013, 607), -- reload, reload command, reload dungeon_access_requirements, reload dungeon_access_template, reload game_graveyard, reload gameobject_loot_template, reload mail_server_template, reload module_string, reload motd, reload npc_trainer, reload player_loot_template, reload spell_proc_event, reload spell_scripts
 (1013, 609), -- reload achievement_criteria_data
